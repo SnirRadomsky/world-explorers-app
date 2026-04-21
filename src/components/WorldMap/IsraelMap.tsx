@@ -46,6 +46,13 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const isPanning = useRef(false);
   const lastPan = useRef({ x: 0, y: 0 });
+  const scaleRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  const activePointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinchStart = useRef<{
+    dist: number; scale: number; pan: { x: number; y: number }; midX: number; midY: number;
+  } | null>(null);
+  const totalMovement = useRef(0);
 
   const [activeBubble, setActiveBubble] = useState<{
     name: string;
@@ -189,28 +196,121 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
     if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
   }, []);
 
-  // Pan
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    isPanning.current = true;
-    lastPan.current = { x: e.clientX, y: e.clientY };
-    (e.target as Element).setPointerCapture(e.pointerId);
-  }, []);
-  const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isPanning.current) return;
-    const dx = e.clientX - lastPan.current.x;
-    const dy = e.clientY - lastPan.current.y;
-    lastPan.current = { x: e.clientX, y: e.clientY };
-    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
-  }, []);
-  const onPointerUp = useCallback(() => { isPanning.current = false; }, []);
+  const getSVGPoint = (clientX: number, clientY: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    return { x: rect ? clientX - rect.left : clientX, y: rect ? clientY - rect.top : clientY };
+  };
 
-  const zoomIn  = () => setScale((s) => Math.min(s * 1.4, 12));
-  const zoomOut = () => setScale((s) => {
-    const next = s / 1.4;
-    if (next <= 1) { setPan({ x: 0, y: 0 }); return 1; }
-    return next;
-  });
-  const resetView = () => { setScale(1); setPan({ x: 0, y: 0 }); };
+  // Pan + pinch-to-zoom
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    svgRef.current?.setPointerCapture(e.pointerId);
+    const pt = getSVGPoint(e.clientX, e.clientY);
+    activePointers.current.set(e.pointerId, pt);
+
+    if (activePointers.current.size === 1) {
+      totalMovement.current = 0;
+      isPanning.current = true;
+      lastPan.current = pt;
+      pinchStart.current = null;
+    } else if (activePointers.current.size === 2) {
+      isPanning.current = false;
+      const pts = Array.from(activePointers.current.values());
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      pinchStart.current = {
+        dist,
+        scale: scaleRef.current,
+        pan: { ...panRef.current },
+        midX: (pts[0].x + pts[1].x) / 2,
+        midY: (pts[0].y + pts[1].y) / 2,
+      };
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    const pt = getSVGPoint(e.clientX, e.clientY);
+    const prev = activePointers.current.get(e.pointerId);
+    if (prev) totalMovement.current += Math.hypot(pt.x - prev.x, pt.y - prev.y);
+    activePointers.current.set(e.pointerId, pt);
+
+    if (activePointers.current.size >= 2 && pinchStart.current) {
+      const pts = Array.from(activePointers.current.values());
+      const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      const curMidX = (pts[0].x + pts[1].x) / 2;
+      const curMidY = (pts[0].y + pts[1].y) / 2;
+      const { dist: d0, scale: s0, pan: p0, midX: mx0, midY: my0 } = pinchStart.current;
+      const newScale = Math.max(1, Math.min(12, s0 * (dist / d0)));
+      const factor = newScale / s0;
+      const newPan = {
+        x: curMidX + (p0.x - mx0) * factor,
+        y: curMidY + (p0.y - my0) * factor,
+      };
+      scaleRef.current = newScale;
+      panRef.current = newPan;
+      setScale(newScale);
+      setPan(newPan);
+    } else if (isPanning.current && activePointers.current.size === 1) {
+      const dx = pt.x - lastPan.current.x;
+      const dy = pt.y - lastPan.current.y;
+      lastPan.current = pt;
+      const newPan = { x: panRef.current.x + dx, y: panRef.current.y + dy };
+      panRef.current = newPan;
+      setPan(newPan);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    activePointers.current.delete(e.pointerId);
+    if (activePointers.current.size < 2) pinchStart.current = null;
+    if (activePointers.current.size === 1) {
+      const pts = Array.from(activePointers.current.values());
+      lastPan.current = pts[0];
+      isPanning.current = true;
+    } else if (activePointers.current.size === 0) {
+      isPanning.current = false;
+    }
+  }, []);
+
+  const onPointerCancel = useCallback((e: React.PointerEvent) => {
+    activePointers.current.delete(e.pointerId);
+    if (activePointers.current.size === 0) {
+      isPanning.current = false;
+      pinchStart.current = null;
+    }
+  }, []);
+
+  const zoomIn = useCallback(() => {
+    const cx = size.w / 2;
+    const cy = size.h / 2;
+    const newScale = Math.min(scaleRef.current * 1.4, 12);
+    const factor = newScale / scaleRef.current;
+    const newPan = { x: cx + (panRef.current.x - cx) * factor, y: cy + (panRef.current.y - cy) * factor };
+    scaleRef.current = newScale;
+    panRef.current = newPan;
+    setScale(newScale);
+    setPan(newPan);
+  }, [size.w, size.h]);
+
+  const zoomOut = useCallback(() => {
+    const cx = size.w / 2;
+    const cy = size.h / 2;
+    const newScale = scaleRef.current / 1.4;
+    if (newScale <= 1) {
+      scaleRef.current = 1; panRef.current = { x: 0, y: 0 };
+      setScale(1); setPan({ x: 0, y: 0 });
+      return;
+    }
+    const factor = newScale / scaleRef.current;
+    const newPan = { x: cx + (panRef.current.x - cx) * factor, y: cy + (panRef.current.y - cy) * factor };
+    scaleRef.current = newScale;
+    panRef.current = newPan;
+    setScale(newScale);
+    setPan(newPan);
+  }, [size.w, size.h]);
+
+  const resetView = useCallback(() => {
+    scaleRef.current = 1; panRef.current = { x: 0, y: 0 };
+    setScale(1); setPan({ x: 0, y: 0 });
+  }, []);
 
   const transform = `translate(${pan.x},${pan.y}) scale(${scale})`;
   const totalDiscovered = ISRAEL_CITIES.filter((c) => discoveredSet.has(c.id)).length;
@@ -230,6 +330,7 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
       >
         <g transform={transform}>
           {/* District polygons — colored, clickable */}
@@ -257,6 +358,7 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
                 strokeWidth={2 / scale}
                 style={{ cursor: "pointer", transition: "fill 0.25s ease" }}
                 onClick={(e) => {
+                  if (totalMovement.current > 8) return;
                   const rect = svgRef.current!.getBoundingClientRect();
                   handleDistrictClick(distId, e.clientX - rect.left, e.clientY - rect.top, e);
                 }}
@@ -275,7 +377,7 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
             const fs = 11 / scale;
 
             return (
-              <g key={city.id} onClick={(e) => handleCityClick(city.id, e)} style={{ cursor: "pointer" }}>
+              <g key={city.id} onClick={(e) => { if (totalMovement.current > 8) return; handleCityClick(city.id, e); }} style={{ cursor: "pointer" }}>
                 {/* Dot */}
                 <circle
                   cx={pt[0]}
