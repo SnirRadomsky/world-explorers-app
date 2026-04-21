@@ -1,0 +1,28 @@
+name: Mirror to SnirRadomsky
+
+on:
+  push:
+    branches:
+      - '**'
+  delete:
+    branches:
+      - '**'
+
+jobs:
+  mirror:
+    if: github.repository_owner == 'SnirR'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Push mirror to SnirRadomsky/world-explorers-app
+        env:
+          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
+        run: |
+          git remote add mirror "https://x-access-token:${MIRROR_TOKEN}@github.com/SnirRadomsky/world-explorers-app.git"
+          git push mirror --all --force
+          git push mirror --tags --force
