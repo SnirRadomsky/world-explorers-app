@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 
-type GameMode = "continents" | "countries" | "cities" | "country-cities" | "israel";
+type GameMode = "continents" | "countries" | "cities" | "country-cities" | "israel" | "planets";
 
 const STORAGE_KEY_PREFIX = "world-explorers-discoveries";
 
@@ -33,10 +33,12 @@ export interface DiscoveryState {
 export function useDiscovery(mode: GameMode): DiscoveryState {
   const [discovered, setDiscovered] = useState<Set<string>>(() => loadFromStorage(mode));
 
-  // Re-load when mode switches
-  useEffect(() => {
+  // Re-load when mode switches (adjust-state-during-render pattern)
+  const [prevMode, setPrevMode] = useState(mode);
+  if (prevMode !== mode) {
+    setPrevMode(mode);
     setDiscovered(loadFromStorage(mode));
-  }, [mode]);
+  }
 
   useEffect(() => {
     saveToStorage(mode, discovered);

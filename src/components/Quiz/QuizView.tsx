@@ -1,0 +1,388 @@
+// Quiz screen: pick a category, then "איפה X?" — find it on the tap-board.
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  newRound,
+  answer,
+  freshQuestion,
+  medalFor,
+  starsFor,
+  MEDAL_HEBREW,
+  MEDAL_EMOJI,
+  ROUND_LENGTH,
+  type QuizCategory,
+  type QuizRound,
+  type QuizQuestion,
+  type QuizItem,
+} from "../../lib/quiz";
+import { CONTINENTS } from "../../data/continents";
+import { COUNTRIES } from "../../data/countries";
+import { ISRAEL_CITIES } from "../../data/israelCities";
+import { PLANETS } from "../../data/planets";
+import type { SfxName } from "../../hooks/useSfx";
+import ConfettiEffect from "../Overlays/ConfettiEffect";
+import QuizWorldMap from "./QuizWorldMap";
+import QuizIsraelMap from "./QuizIsraelMap";
+import QuizPlanets from "./QuizPlanets";
+
+const PRAISES = ["כל הכבוד!", "מעולה!", "וואו, נכון!", "יש! מצאתם!", "אלופים!"];
+const OOPS = ["אופס, נסו שוב!", "כמעט! עוד ניסיון", "לא נורא, נסו שוב!"];
+
+const CATEGORIES: { id: QuizCategory; label: string; emoji: string; gradient: string }[] = [
+  { id: "continents", label: "יבשות", emoji: "🌍", gradient: "linear-gradient(135deg,#3b82f6,#1d4ed8)" },
+  { id: "countries", label: "מדינות", emoji: "🗺️", gradient: "linear-gradient(135deg,#10b981,#059669)" },
+  { id: "israel", label: "ערי ישראל", emoji: "🇮🇱", gradient: "linear-gradient(135deg,#f97316,#ea580c)" },
+  { id: "planets", label: "כוכבי לכת", emoji: "🪐", gradient: "linear-gradient(135deg,#8b5cf6,#6d28d9)" },
+];
+
+const CATALOGS: Record<QuizCategory, QuizItem[]> = {
+  continents: CONTINENTS.map((c) => ({ id: c.id, nameHebrew: c.nameHebrew })),
+  countries: COUNTRIES.map((c) => ({ id: c.id, nameHebrew: c.nameHebrew })),
+  israel: ISRAEL_CITIES.map((c) => ({ id: c.id, nameHebrew: c.nameHebrew })),
+  planets: PLANETS.map((p) => ({ id: p.id, nameHebrew: p.nameHebrew })),
+};
+
+interface QuizViewProps {
+  discovered: Record<QuizCategory, Set<string>>;
+  speakHebrew: (text: string) => void;
+  playSfx: (name: SfxName) => void;
+  recordQuizResult: (category: string, stars: number, isGold: boolean) => void;
+}
+
+export default function QuizView({ discovered, speakHebrew, playSfx, recordQuizResult }: QuizViewProps) {
+  const [category, setCategory] = useState<QuizCategory | null>(null);
+  const [round, setRound] = useState<QuizRound | null>(null);
+  const [question, setQuestion] = useState<QuizQuestion | null>(null);
+  const [shakeKey, setShakeKey] = useState(0);
+  const [confettiTrigger, setConfettiTrigger] = useState(0);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false); // brief lock between questions
+
+  const startRound = useCallback(
+    (cat: QuizCategory) => {
+      const r = newRound(cat, CATALOGS[cat], discovered[cat]);
+      setCategory(cat);
+      setRound(r);
+      setQuestion(freshQuestion(r, 0));
+      setFeedback(null);
+      setLocked(false);
+    },
+    [discovered]
+  );
+
+  // Announce each new question.
+  const targetId = question?.target.id;
+  const targetName = question?.target.nameHebrew;
+  useEffect(() => {
+    if (targetName && round && !round.finished) {
+      speakHebrew(`איפה ${targetName}?`);
+    }
+  }, [targetId, targetName, round, speakHebrew]);
+
+  const finished = round?.finished ?? false;
+
+  // Round-end announcements + persistence.
+  useEffect(() => {
+    if (!finished || !round || !category) return;
+    const medal = medalFor(round.correctFirstTry);
+    const stars = starsFor(round.correctFirstTry);
+    recordQuizResult(category, stars, medal === "gold");
+    playSfx(medal === "none" ? "chime" : "tada");
+    speakHebrew(
+      medal === "none"
+        ? "כל הכבוד שניסיתם! בואו ננסה שוב"
+        : `מדהים! קיבלתם ${MEDAL_HEBREW[medal]}`
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+
+  const handleTap = useCallback(
+    (tappedId: string) => {
+      if (!round || !question || round.finished || locked) return;
+      const res = answer(round, question, tappedId);
+
+      if (res.result.kind === "correct") {
+        playSfx("tada");
+        setConfettiTrigger((p) => p + 1);
+        setFeedback(PRAISES[Math.floor(Math.random() * PRAISES.length)]);
+        speakHebrew(PRAISES[Math.floor(Math.random() * PRAISES.length)]);
+        setLocked(true);
+        setTimeout(() => {
+          setRound(res.round);
+          setQuestion(res.round.finished ? question : res.question);
+          setFeedback(null);
+          setLocked(false);
+        }, 1100);
+      } else if (res.result.kind === "wrong") {
+        playSfx("boing");
+        setShakeKey((k) => k + 1);
+        const oops = OOPS[Math.floor(Math.random() * OOPS.length)];
+        setFeedback(oops);
+        if (res.result.reveal) {
+          speakHebrew(`הנה ${question.target.nameHebrew}! לחצו על מה שמהבהב`);
+        } else {
+          speakHebrew(oops);
+        }
+        setQuestion(res.question);
+        setTimeout(() => setFeedback(null), 1400);
+      }
+    },
+    [round, question, locked, playSfx, speakHebrew]
+  );
+
+  const hintId = question && (question.hinted || question.revealed) ? question.target.id : null;
+
+  const board = useMemo(() => {
+    if (!category) return null;
+    if (category === "continents" || category === "countries") {
+      return <QuizWorldMap kind={category} hintId={hintId} onTap={handleTap} />;
+    }
+    if (category === "israel") {
+      return <QuizIsraelMap hintId={hintId} onTap={handleTap} />;
+    }
+    return <QuizPlanets hintId={hintId} onTap={handleTap} />;
+  }, [category, hintId, handleTap]);
+
+  // ── Category picker ──
+  if (!category || !round || !question) {
+    return (
+      <div
+        className="w-full h-full flex flex-col items-center justify-center gap-4 p-6"
+        style={{ direction: "rtl", fontFamily: "Heebo, sans-serif", overflowY: "auto" }}
+      >
+        <div
+          className="text-center rounded-3xl px-8 py-4"
+          style={{ background: "rgba(255,255,255,0.9)", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}
+        >
+          <div style={{ fontSize: 44 }}>❓</div>
+          <h2 style={{ fontWeight: 900, fontSize: 28, color: "#1a365d", margin: 0 }}>חידון מגלי העולם</h2>
+          <p style={{ fontWeight: 700, fontSize: 15, color: "#2d4a7a", marginTop: 4 }}>
+            אני שואל — אתם מוצאים על המפה!
+          </p>
+        </div>
+        <div className="flex flex-col gap-3 w-full max-w-md">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => {
+                playSfx("pop");
+                startRound(c.id);
+              }}
+              data-testid={`quiz-cat-${c.id}`}
+              className="border-none rounded-2xl cursor-pointer"
+              style={{
+                fontFamily: "Heebo, sans-serif",
+                background: c.gradient,
+                padding: "16px 20px",
+                boxShadow: "0 8px 24px rgba(30,41,120,0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <span style={{ fontWeight: 800, fontSize: 24, color: "white", textShadow: "0 2px 6px rgba(0,0,0,0.25)" }}>
+                {c.label}
+              </span>
+              <span style={{ fontSize: 30 }}>{c.emoji}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const medal = medalFor(round.correctFirstTry);
+  const stars = starsFor(round.correctFirstTry);
+
+  return (
+    <div className="relative w-full h-full" style={{ fontFamily: "Heebo, sans-serif" }}>
+      {/* Board */}
+      <div className="absolute inset-0">{board}</div>
+
+      {/* Question banner */}
+      {!round.finished && (
+        <motion.div
+          key={`q-${round.index}-${shakeKey}`}
+          initial={shakeKey > 0 ? { x: 0 } : { y: -30, opacity: 0 }}
+          animate={shakeKey > 0 ? { x: [0, -12, 12, -8, 8, 0] } : { y: 0, opacity: 1 }}
+          transition={{ duration: 0.45 }}
+          style={{
+            position: "absolute",
+            top: 64,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 25,
+            background: "rgba(255,255,255,0.96)",
+            borderRadius: 20,
+            padding: "10px 22px",
+            boxShadow: "0 6px 22px rgba(0,0,0,0.25)",
+            direction: "rtl",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            maxWidth: "92%",
+          }}
+        >
+          <button
+            onClick={() => speakHebrew(`איפה ${question.target.nameHebrew}?`)}
+            aria-label="השמעה חוזרת"
+            style={{
+              border: "none",
+              background: "#eef2ff",
+              borderRadius: "50%",
+              width: 40,
+              height: 40,
+              fontSize: 18,
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            🔊
+          </button>
+          <div data-testid="quiz-question" style={{ fontWeight: 900, fontSize: "clamp(20px,4.5vw,30px)", color: "#0f172a", whiteSpace: "nowrap" }}>
+            איפה {question.target.nameHebrew}?
+          </div>
+        </motion.div>
+      )}
+
+      {/* Progress dots */}
+      {!round.finished && (
+        <div
+          style={{
+            position: "absolute",
+            top: 122,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 25,
+            display: "flex",
+            gap: 6,
+            direction: "rtl",
+          }}
+        >
+          {round.questions.map((_, i) => (
+            <span
+              key={i}
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                background: i < round.index ? "#22c55e" : i === round.index ? "#f59e0b" : "rgba(255,255,255,0.75)",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+                transition: "background 0.3s ease",
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Feedback toast */}
+      <AnimatePresence>
+        {feedback && (
+          <motion.div
+            key={feedback + shakeKey}
+            initial={{ scale: 0.6, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.6, opacity: 0 }}
+            style={{
+              position: "absolute",
+              bottom: 96,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 25,
+              background: "rgba(15,23,42,0.85)",
+              color: "white",
+              borderRadius: 999,
+              padding: "10px 26px",
+              fontWeight: 900,
+              fontSize: 20,
+              whiteSpace: "nowrap",
+              direction: "rtl",
+            }}
+          >
+            {feedback}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <ConfettiEffect trigger={confettiTrigger} originX={0.5} originY={0.45} />
+
+      {/* Round-end modal */}
+      <AnimatePresence>
+        {round.finished && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ background: "rgba(8,15,40,0.55)" }}
+          >
+            <motion.div
+              initial={{ scale: 0, rotate: -8 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 220, damping: 16 }}
+              className="rounded-3xl p-8 text-center mx-4"
+              style={{
+                background: "linear-gradient(160deg,#ffffff,#eef2ff)",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+                direction: "rtl",
+                maxWidth: 380,
+                width: "100%",
+              }}
+            >
+              <div style={{ fontSize: 56 }}>{MEDAL_EMOJI[medal]}</div>
+              <div style={{ fontWeight: 900, fontSize: 26, color: "#0f172a", marginTop: 4 }} data-testid="quiz-result">
+                {MEDAL_HEBREW[medal]}
+              </div>
+              <div style={{ fontSize: 34, margin: "8px 0" }}>
+                {"⭐".repeat(stars)}
+                {"☆".repeat(3 - stars)}
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "#475569" }}>
+                עניתם נכון בניסיון הראשון על {round.correctFirstTry} מתוך {ROUND_LENGTH} שאלות
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 18, justifyContent: "center" }}>
+                <button
+                  onClick={() => startRound(category)}
+                  style={{
+                    border: "none",
+                    borderRadius: 16,
+                    background: "linear-gradient(135deg,#3b82f6,#6366f1)",
+                    color: "white",
+                    fontFamily: "Heebo, sans-serif",
+                    fontWeight: 900,
+                    fontSize: 17,
+                    padding: "12px 22px",
+                    cursor: "pointer",
+                  }}
+                >
+                  🔁 עוד סיבוב
+                </button>
+                <button
+                  onClick={() => {
+                    setCategory(null);
+                    setRound(null);
+                    setQuestion(null);
+                  }}
+                  style={{
+                    border: "none",
+                    borderRadius: 16,
+                    background: "#e2e8f0",
+                    color: "#334155",
+                    fontFamily: "Heebo, sans-serif",
+                    fontWeight: 900,
+                    fontSize: 17,
+                    padding: "12px 22px",
+                    cursor: "pointer",
+                  }}
+                >
+                  נושא אחר
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

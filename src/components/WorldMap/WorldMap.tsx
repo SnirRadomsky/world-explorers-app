@@ -13,9 +13,15 @@ import NameRevealBubble from "./NameRevealBubble";
 import ConfettiEffect from "../Overlays/ConfettiEffect";
 import MilestoneModal from "../Overlays/MilestoneModal";
 
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+// Bundled locally so the app is fully offline (no CDN at runtime).
+const GEO_URL = "/countries-110m.json";
 
 type GameMode = "continents" | "countries";
+
+interface GeoShape {
+  id?: string | number;
+  rsmKey: string;
+}
 
 // Approximate continent centers for star placement
 const CONTINENT_CENTERS: Record<string, [number, number]> = {
@@ -232,10 +238,15 @@ interface WorldMapProps {
   discoveredSet: Set<string>;
   onDiscover: (id: string) => boolean;
   speakHebrew: (text: string) => void;
+  playSfx?: (name: "pop" | "chime") => void;
+  /** When provided, the discovery bubble offers an עוד! button opening a card. */
+  onMoreInfo?: (kind: GameMode, id: string) => void;
 }
 
-export default function WorldMap({ mode, discoveredSet, onDiscover, speakHebrew }: WorldMapProps) {
+export default function WorldMap({ mode, discoveredSet, onDiscover, speakHebrew, playSfx, onMoreInfo }: WorldMapProps) {
   const [activeBubble, setActiveBubble] = useState<{
+    id: string;
+    kind: GameMode;
     name: string;
     subName?: string;
     color: string;
@@ -276,8 +287,9 @@ export default function WorldMap({ mode, discoveredSet, onDiscover, speakHebrew 
   // ─── Click handlers ─────────────────────────────────────────────────────────
 
   const triggerDiscovery = useCallback(
-    (id: string, name: string, color: string, subName?: string, event?: React.MouseEvent) => {
-      setActiveBubble({ name, subName, color });
+    (id: string, kind: GameMode, name: string, color: string, subName?: string, event?: React.MouseEvent) => {
+      setActiveBubble({ id, kind, name, subName, color });
+      playSfx?.("pop");
 
       if (event) {
         setConfettiOrigin({
@@ -287,20 +299,23 @@ export default function WorldMap({ mode, discoveredSet, onDiscover, speakHebrew 
       }
 
       const isNew = onDiscover(id);
-      if (isNew) setConfettiTrigger((p) => p + 1);
+      if (isNew) {
+        setConfettiTrigger((p) => p + 1);
+        playSfx?.("chime");
+      }
 
       speakHebrew(name);
 
       if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
-      dismissTimerRef.current = setTimeout(() => setActiveBubble(null), 2800);
+      dismissTimerRef.current = setTimeout(() => setActiveBubble(null), 3400);
 
       return isNew;
     },
-    [onDiscover, speakHebrew]
+    [onDiscover, speakHebrew, playSfx]
   );
 
   const handleGeoClick = useCallback(
-    (geo: any, event: React.MouseEvent) => {
+    (geo: GeoShape, event: React.MouseEvent) => {
       const geoId = String(geo.id ?? "");
 
       if (mode === "continents") {
@@ -308,7 +323,7 @@ export default function WorldMap({ mode, discoveredSet, onDiscover, speakHebrew 
         const continent = CONTINENTS.find((c) => c.id === cId);
         if (!continent) return;
 
-        const isNew = triggerDiscovery(cId, continent.nameHebrew, continent.color, undefined, event);
+        const isNew = triggerDiscovery(cId, "continents", continent.nameHebrew, continent.color, undefined, event);
 
         if (isNew) {
           const next = new Set(discoveredSet);
@@ -328,7 +343,7 @@ export default function WorldMap({ mode, discoveredSet, onDiscover, speakHebrew 
         if (!country) return;
 
         const color = getCountryColor(country.continentId);
-        const isNew = triggerDiscovery(geoId, country.nameHebrew, color, undefined, event);
+        const isNew = triggerDiscovery(geoId, "countries", country.nameHebrew, color, undefined, event);
 
         if (isNew) {
           const next = new Set(discoveredSet);
@@ -394,7 +409,7 @@ export default function WorldMap({ mode, discoveredSet, onDiscover, speakHebrew 
           maxZoom={150}
         >
           <Geographies geography={GEO_URL}>
-            {({ geographies }) =>
+            {({ geographies }: { geographies: GeoShape[] }) =>
               geographies.map((geo) => {
                 const geoId = String(geo.id);
                 const fill = getGeoFill(geoId);
@@ -406,6 +421,7 @@ export default function WorldMap({ mode, discoveredSet, onDiscover, speakHebrew 
                   <Geography
                     key={geo.rsmKey}
                     geography={geo}
+                    data-geo-id={geoId}
                     onClick={
                       isClickable
                         ? (event) => handleGeoClick(geo, event as unknown as React.MouseEvent)
@@ -509,6 +525,15 @@ export default function WorldMap({ mode, discoveredSet, onDiscover, speakHebrew 
         color={activeBubble?.color ?? "#818cf8"}
         position={null}
         onDismiss={dismissBubble}
+        onMore={
+          activeBubble && onMoreInfo
+            ? () => {
+                if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+                onMoreInfo(activeBubble.kind, activeBubble.id);
+                setActiveBubble(null);
+              }
+            : undefined
+        }
       />
 
       {/* Confetti */}

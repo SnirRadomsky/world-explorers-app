@@ -1,155 +1,338 @@
-import { useState, useCallback } from "react";
-import HomeScreen from "./components/UI/HomeScreen";
-import WorldMap from "./components/WorldMap/WorldMap";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import HomeScreen, { type HomeTarget } from "./components/UI/HomeScreen";
+import GlobeView from "./components/Globe/GlobeView";
+import Map2DView from "./components/WorldMap/Map2DView";
 import IsraelMap from "./components/WorldMap/IsraelMap";
+import SolarSystemView from "./components/Space/SolarSystemView";
+import QuizView from "./components/Quiz/QuizView";
+import StickerAlbum from "./components/Album/StickerAlbum";
+import StickerCelebration from "./components/Album/StickerCelebration";
+import ParentalGate from "./components/UI/ParentalGate";
 import DiscoveryCounter from "./components/UI/DiscoveryCounter";
 import AudioToggle from "./components/UI/AudioToggle";
 import { useDiscovery } from "./hooks/useDiscovery";
 import { useAudio } from "./hooks/useAudio";
+import { useSfx } from "./hooks/useSfx";
+import { useStickers } from "./hooks/useStickers";
 import { CONTINENTS } from "./data/continents";
 import { COUNTRIES } from "./data/countries";
 import { TOTAL_ISRAEL_CITIES } from "./data/israelCities";
+import { TOTAL_SPACE_OBJECTS } from "./data/planets";
+import { STICKERS } from "./lib/stickers";
 
-type GameMode = "continents" | "countries" | "israel";
-type Screen = "home" | "map";
+type Screen = "home" | "globe" | "map2d" | "israel" | "space" | "quiz" | "album";
+type WorldMode = "continents" | "countries";
 
-const MODE_TOTALS: Record<GameMode, number> = {
-  continents: CONTINENTS.length,
-  countries:  COUNTRIES.length,
-  israel:     TOTAL_ISRAEL_CITIES,
+const SCREEN_LABELS: Record<Screen, string> = {
+  home: "",
+  globe: "הגלובוס שלי",
+  map2d: "מפה שטוחה",
+  israel: "ערי ישראל",
+  space: "מערכת השמש",
+  quiz: "חידון",
+  album: "אלבום מדבקות",
 };
 
-const MODE_LABELS: Record<GameMode, string> = {
-  continents: "יבשות",
-  countries:  "מדינות",
-  israel:     "ערי ישראל",
+const topBtn: React.CSSProperties = {
+  width: 44,
+  height: 44,
+  border: "none",
+  borderRadius: "50%",
+  background: "rgba(255,255,255,0.9)",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+  fontSize: 20,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
 };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
-  const [mode, setMode] = useState<GameMode>("continents");
+  const [worldMode, setWorldMode] = useState<WorldMode>("continents");
+  const [gateOpen, setGateOpen] = useState(false);
+  const [rocketFlight, setRocketFlight] = useState(false);
 
-  const { isMuted, toggleMute, speakHebrew } = useAudio();
+  const { isMuted, toggleMute, speakHebrew, speakLang } = useAudio();
+  const { play } = useSfx(isMuted);
 
   const continentsDiscovery = useDiscovery("continents");
-  const countriesDiscovery  = useDiscovery("countries");
-  const israelDiscovery     = useDiscovery("israel");
+  const countriesDiscovery = useDiscovery("countries");
+  const israelDiscovery = useDiscovery("israel");
+  const planetsDiscovery = useDiscovery("planets");
 
-  const activeDiscovery =
-    mode === "continents" ? continentsDiscovery :
-    mode === "countries"  ? countriesDiscovery  :
-    israelDiscovery;
+  const progressSnapshot = useMemo(
+    () => ({
+      continentsDiscovered: continentsDiscovery.discovered,
+      countriesDiscovered: countriesDiscovery.discovered,
+      israelDiscovered: israelDiscovery.totalDiscovered,
+      planetsDiscovered: planetsDiscovery.totalDiscovered,
+    }),
+    [
+      continentsDiscovery.discovered,
+      countriesDiscovery.discovered,
+      israelDiscovery.totalDiscovered,
+      planetsDiscovery.totalDiscovered,
+    ]
+  );
+
+  const stickers = useStickers(progressSnapshot);
 
   const grandTotal =
     continentsDiscovery.totalDiscovered +
     countriesDiscovery.totalDiscovered +
-    israelDiscovery.totalDiscovered;
+    israelDiscovery.totalDiscovered +
+    planetsDiscovery.totalDiscovered;
 
-  const handleSelectMode = useCallback((selectedMode: GameMode) => {
-    setMode(selectedMode);
-    setScreen("map");
+  const activeWorldDiscovery = worldMode === "continents" ? continentsDiscovery : countriesDiscovery;
+
+  // Fly a rocket between Earth screens and space 🚀
+  const flightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const goWithRocket = useCallback((to: Screen) => {
+    setRocketFlight(true);
+    if (flightTimer.current) clearTimeout(flightTimer.current);
+    setTimeout(() => setScreen(to), 450);
+    flightTimer.current = setTimeout(() => setRocketFlight(false), 1000);
   }, []);
 
-  const handleBack = useCallback(() => {
-    setScreen("home");
-  }, []);
+  const handleHomeSelect = useCallback(
+    (target: HomeTarget) => {
+      play("pop");
+      if (target === "space") goWithRocket("space");
+      else setScreen(target);
+    },
+    [play, goWithRocket]
+  );
 
-  // ── Home screen ─────────────────────────────────────────────────────────────
+  const counter = (() => {
+    switch (screen) {
+      case "globe":
+      case "map2d":
+        return {
+          count: activeWorldDiscovery.totalDiscovered,
+          total: worldMode === "continents" ? CONTINENTS.length : COUNTRIES.length,
+        };
+      case "israel":
+        return { count: israelDiscovery.totalDiscovered, total: TOTAL_ISRAEL_CITIES };
+      case "space":
+        return { count: planetsDiscovery.totalDiscovered, total: TOTAL_SPACE_OBJECTS };
+      default:
+        return null;
+    }
+  })();
+
+  const canReset = screen === "globe" || screen === "map2d" || screen === "israel" || screen === "space";
+
+  const doReset = useCallback(() => {
+    setGateOpen(false);
+    if (screen === "israel") israelDiscovery.resetProgress();
+    else if (screen === "space") planetsDiscovery.resetProgress();
+    else activeWorldDiscovery.resetProgress();
+    speakHebrew("ההתקדמות אופסה. יוצאים להרפתקה חדשה!");
+  }, [screen, israelDiscovery, planetsDiscovery, activeWorldDiscovery, speakHebrew]);
+
+  // ── Home ──
   if (screen === "home") {
     return (
       <div className="h-full w-full" style={{ fontFamily: "Heebo, sans-serif" }}>
         <HomeScreen
-          onSelectMode={handleSelectMode}
+          onSelect={handleHomeSelect}
           totalDiscovered={grandTotal}
           discoveredPerMode={{
             continents: continentsDiscovery.totalDiscovered,
-            countries:  countriesDiscovery.totalDiscovered,
-            israel:     israelDiscovery.totalDiscovered,
+            countries: countriesDiscovery.totalDiscovered,
+            israel: israelDiscovery.totalDiscovered,
+            planets: planetsDiscovery.totalDiscovered,
           }}
+          stickersUnlocked={stickers.unlocked.size}
+          stickersTotal={STICKERS.length}
         />
+        <StickerCelebration
+          stickerId={stickers.pendingCelebration}
+          onClose={() => stickers.pendingCelebration && stickers.markCelebrated(stickers.pendingCelebration)}
+          onGoToAlbum={() => {
+            if (stickers.pendingCelebration) stickers.markCelebrated(stickers.pendingCelebration);
+            setScreen("album");
+          }}
+          speakHebrew={speakHebrew}
+          playSfx={play}
+        />
+        <RocketOverlay active={rocketFlight} />
       </div>
     );
   }
 
-  // ── Map screen ───────────────────────────────────────────────────────────────
+  // ── All other screens share the top bar ──
+  const isSpaceish = screen === "space";
+
   return (
-    <div className="h-full w-full relative overflow-hidden" style={{ fontFamily: "Heebo, sans-serif" }}>
+    <div
+      className="h-full w-full relative overflow-hidden"
+      style={{ fontFamily: "Heebo, sans-serif", background: isSpaceish ? "#020309" : undefined }}
+    >
       {/* Top bar */}
       <div
-        className="absolute top-0 right-0 left-0 z-30 flex items-center justify-between p-3"
-        style={{ direction: "rtl" }}
+        className="absolute top-0 right-0 left-0 z-30 flex items-center justify-between gap-1 p-2"
+        style={{ direction: "rtl", pointerEvents: "none" }}
       >
         <button
-          onClick={handleBack}
-          className="border-none rounded-full cursor-pointer flex items-center justify-center"
-          style={{
-            width: "48px",
-            height: "48px",
-            background: "rgba(255,255,255,0.9)",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-            fontSize: "24px",
+          onClick={() => {
+            play("pop");
+            if (screen === "space") goWithRocket("home");
+            else setScreen("home");
           }}
-          aria-label="חזרה"
+          style={{ ...topBtn, pointerEvents: "auto" }}
+          aria-label="חזרה הביתה"
+          data-testid="home-button"
         >
           🏠
         </button>
 
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-0.5" style={{ minWidth: 0 }}>
           <div
             style={{
-              fontFamily: "Heebo, sans-serif",
               fontWeight: 700,
-              fontSize: "13px",
-              color: "#64748b",
+              fontSize: 12,
+              color: isSpaceish ? "#c7d2fe" : "#64748b",
               letterSpacing: "0.5px",
+              textShadow: isSpaceish ? "0 1px 4px rgba(0,0,0,0.8)" : undefined,
+              whiteSpace: "nowrap",
             }}
           >
-            {MODE_LABELS[mode]}
+            {SCREEN_LABELS[screen]}
           </div>
-          <DiscoveryCounter
-            count={activeDiscovery.totalDiscovered}
-            total={MODE_TOTALS[mode]}
-          />
+          {counter && <DiscoveryCounter count={counter.count} total={counter.total} />}
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              if (window.confirm(`לאפס את כל הגילויים של "${MODE_LABELS[mode]}"?`)) {
-                activeDiscovery.resetProgress();
-              }
-            }}
-            className="border-none rounded-full cursor-pointer flex items-center justify-center"
-            style={{
-              width: "48px",
-              height: "48px",
-              background: "rgba(255,255,255,0.9)",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-              fontSize: "20px",
-            }}
-            title="איפוס גילויים"
-            aria-label="איפוס גילויים"
-          >
-            🗑️
-          </button>
+        <div className="flex items-center gap-2" style={{ pointerEvents: "auto" }}>
+          {canReset && (
+            <button
+              onClick={() => setGateOpen(true)}
+              style={topBtn}
+              title="איפוס גילויים"
+              aria-label="איפוס גילויים"
+              data-testid="reset-button"
+            >
+              🗑️
+            </button>
+          )}
           <AudioToggle isMuted={isMuted} onToggle={toggleMute} />
         </div>
       </div>
 
-      {mode === "israel" ? (
+      {/* Screens */}
+      {screen === "globe" && (
+        <GlobeView
+          mode={worldMode}
+          onModeChange={setWorldMode}
+          continentsDiscovery={continentsDiscovery}
+          countriesDiscovery={countriesDiscovery}
+          speakHebrew={speakHebrew}
+          speakLang={speakLang}
+          playSfx={play}
+          wordsHeard={stickers.wordsHeard}
+          markWordHeard={stickers.markWordHeard}
+          onGoTo2D={() => setScreen("map2d")}
+          onGoSpace={() => goWithRocket("space")}
+        />
+      )}
+
+      {screen === "map2d" && (
+        <Map2DView
+          mode={worldMode}
+          onModeChange={setWorldMode}
+          continentsDiscovery={continentsDiscovery}
+          countriesDiscovery={countriesDiscovery}
+          speakHebrew={speakHebrew}
+          speakLang={speakLang}
+          playSfx={play}
+          wordsHeard={stickers.wordsHeard}
+          markWordHeard={stickers.markWordHeard}
+          onGoTo3D={() => setScreen("globe")}
+        />
+      )}
+
+      {screen === "israel" && (
         <IsraelMap
           discoveredSet={israelDiscovery.discovered}
           onDiscover={israelDiscovery.discover}
           speakHebrew={speakHebrew}
-        />
-      ) : (
-        <WorldMap
-          mode={mode}
-          discoveredSet={activeDiscovery.discovered}
-          onDiscover={activeDiscovery.discover}
-          speakHebrew={speakHebrew}
+          playSfx={play}
         />
       )}
+
+      {screen === "space" && (
+        <SolarSystemView
+          planetsDiscovery={planetsDiscovery}
+          speakHebrew={speakHebrew}
+          playSfx={play}
+          onBackToEarth={() => goWithRocket("globe")}
+        />
+      )}
+
+      {screen === "quiz" && (
+        <QuizView
+          discovered={{
+            continents: continentsDiscovery.discovered,
+            countries: countriesDiscovery.discovered,
+            israel: israelDiscovery.discovered,
+            planets: planetsDiscovery.discovered,
+          }}
+          speakHebrew={speakHebrew}
+          playSfx={play}
+          recordQuizResult={stickers.recordQuizResult}
+        />
+      )}
+
+      {screen === "album" && (
+        <StickerAlbum unlocked={stickers.unlocked} speakHebrew={speakHebrew} playSfx={play} />
+      )}
+
+      {/* Overlays */}
+      <ParentalGate open={gateOpen} onSuccess={doReset} onClose={() => setGateOpen(false)} />
+      <StickerCelebration
+        stickerId={stickers.pendingCelebration}
+        onClose={() => stickers.pendingCelebration && stickers.markCelebrated(stickers.pendingCelebration)}
+        onGoToAlbum={() => {
+          if (stickers.pendingCelebration) stickers.markCelebrated(stickers.pendingCelebration);
+          setScreen("album");
+        }}
+        speakHebrew={speakHebrew}
+        playSfx={play}
+      />
+      <RocketOverlay active={rocketFlight} />
     </div>
+  );
+}
+
+/** Full-screen rocket transition between Earth and space. */
+function RocketOverlay({ active }: { active: boolean }) {
+  return (
+    <AnimatePresence>
+      {active && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 1, 0] }}
+          transition={{ duration: 1.0, times: [0, 0.35, 0.65, 1] }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-40 flex items-center justify-center"
+          style={{
+            background: "radial-gradient(ellipse at 50% 80%, #1e2a5e 0%, #0a0f2b 55%, #04060f 100%)",
+            pointerEvents: "none",
+          }}
+        >
+          <motion.div
+            initial={{ y: 220, scale: 0.8, rotate: 0 }}
+            animate={{ y: -280, scale: 1.25 }}
+            transition={{ duration: 1.0, ease: "easeIn" }}
+            style={{ fontSize: 84, filter: "drop-shadow(0 12px 24px rgba(255,160,60,0.6))" }}
+          >
+            🚀
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

@@ -1,0 +1,195 @@
+// Per-country passport-card details, keyed by ISO 3166-1 numeric code
+// (same ids as countries.ts / the TopoJSON).
+// flag emoji is derived from alpha2 at runtime (flagEmoji) — zero image assets.
+
+export interface CountryDetails {
+  alpha2: string;        // ISO alpha-2, drives the flag emoji
+  capitalHebrew: string; // capital city in Hebrew
+  languageId: string;    // key into LANGUAGES
+  factHebrew: string;    // one kid-friendly wow-fact in Hebrew
+  emojis: string;        // 2-4 signature emojis (landmark/animal/food)
+}
+
+/** Convert ISO alpha-2 ("FR") to its flag emoji ("🇫🇷") via regional indicators. */
+export function flagEmoji(alpha2: string): string {
+  return alpha2
+    .toUpperCase()
+    .replace(/./g, (ch) => String.fromCodePoint(0x1f1e6 + ch.charCodeAt(0) - 65));
+}
+
+export const COUNTRY_DETAILS: Record<string, CountryDetails> = {
+  // ── North America ──────────────────────────────────────────────────────────
+  "840": { alpha2: "US", capitalHebrew: "וושינגטון",      languageId: "english",    factHebrew: "בארה\"ב יש 50 מדינות — ובכל אחת דגל משלה!", emojis: "🗽🏈🍔" },
+  "124": { alpha2: "CA", capitalHebrew: "אוטווה",         languageId: "english",    factHebrew: "בקנדה יש יותר אגמים מאשר בכל שאר העולם ביחד!", emojis: "🍁🦫🏒" },
+  "484": { alpha2: "MX", capitalHebrew: "מקסיקו סיטי",    languageId: "spanish",    factHebrew: "במקסיקו בנו פירמידות ענקיות עוד לפני אלפי שנים!", emojis: "🌮🌵🎸" },
+  "304": { alpha2: "GL", capitalHebrew: "נוק",            languageId: "danish",     factHebrew: "גרינלנד היא האי הכי גדול בעולם — ורובה מכוסה קרח!", emojis: "🧊🐻‍❄️🛷" },
+  "320": { alpha2: "GT", capitalHebrew: "גואטמלה סיטי",   languageId: "spanish",    factHebrew: "בגואטמלה יש הרי געש פעילים שאפשר לטפס עליהם!", emojis: "🌋🦜☕" },
+  "340": { alpha2: "HN", capitalHebrew: "טגוסיגלפה",      languageId: "spanish",    factHebrew: "בהונדורס יש שונית אלמוגים ענקית ויפהפייה!", emojis: "🐠🌴🦈" },
+  "222": { alpha2: "SV", capitalHebrew: "סן סלבדור",      languageId: "spanish",    factHebrew: "אל סלבדור נקראת 'ארץ הרי הגעש' — יש בה יותר מ-20!", emojis: "🌋🏄☕" },
+  "558": { alpha2: "NI", capitalHebrew: "מנגואה",         languageId: "spanish",    factHebrew: "בניקרגואה יש אגם ענק עם כרישים מתוקים — מיוחד בעולם!", emojis: "🦈🌋🛶" },
+  "188": { alpha2: "CR", capitalHebrew: "סן חוסה",        languageId: "spanish",    factHebrew: "בקוסטה ריקה חיים עצלנים חמודים על העצים!", emojis: "🦥🌴🦋" },
+  "591": { alpha2: "PA", capitalHebrew: "פנמה סיטי",      languageId: "spanish",    factHebrew: "תעלת פנמה מחברת בין שני אוקיינוסים ענקיים!", emojis: "🚢🌉🐸" },
+  "084": { alpha2: "BZ", capitalHebrew: "בלמופן",         languageId: "english",    factHebrew: "מול חופי בליז יש 'חור כחול' ענק ועגול בים!", emojis: "🐬🌊🤿" },
+  "192": { alpha2: "CU", capitalHebrew: "הוואנה",         languageId: "spanish",    factHebrew: "בקובה נוסעות מכוניות עתיקות וצבעוניות מלפני 70 שנה!", emojis: "🚗🎺🏝️" },
+  "332": { alpha2: "HT", capitalHebrew: "פורט-או-פרנס",   languageId: "french",     factHebrew: "בהאיטי מדברים קריאולית — שפה שנולדה מצרפתית!", emojis: "🥁🎨🌺" },
+  "214": { alpha2: "DO", capitalHebrew: "סנטו דומינגו",   languageId: "spanish",    factHebrew: "ברפובליקה הדומיניקנית יש חופים עם חול לבן ורך!", emojis: "🏖️⚾🥥" },
+  "388": { alpha2: "JM", capitalHebrew: "קינגסטון",       languageId: "english",    factHebrew: "ג'מייקה היא ביתם של האצנים הכי מהירים בעולם!", emojis: "🏃💨🎵" },
+  "780": { alpha2: "TT", capitalHebrew: "פורט אוף ספיין", languageId: "english",    factHebrew: "בטרינידד המציאו את תוף הפלדה — כלי נגינה מחבית!", emojis: "🥁🦩🎭" },
+
+  // ── South America ──────────────────────────────────────────────────────────
+  "076": { alpha2: "BR", capitalHebrew: "ברזיליה",        languageId: "portuguese", factHebrew: "בברזיל נמצא יער האמזונס — היער הכי גדול בעולם!", emojis: "⚽🦜🌳" },
+  "032": { alpha2: "AR", capitalHebrew: "בואנוס איירס",   languageId: "spanish",    factHebrew: "בארגנטינה רוקדים טנגו ואוכלים אסאדו טעים!", emojis: "⚽💃🥩" },
+  "152": { alpha2: "CL", capitalHebrew: "סנטיאגו",        languageId: "spanish",    factHebrew: "צ'ילה היא המדינה הכי ארוכה וצרה בעולם!", emojis: "🏔️🍇🐧" },
+  "604": { alpha2: "PE", capitalHebrew: "לימה",           languageId: "spanish",    factHebrew: "בפרו נמצאת מאצ'ו פיצ'ו — עיר עתיקה על ראש הר!", emojis: "🦙🏔️🏛️" },
+  "170": { alpha2: "CO", capitalHebrew: "בוגוטה",         languageId: "spanish",    factHebrew: "בקולומביה גדל הקפה שהעולם כולו אוהב!", emojis: "☕🦋💃" },
+  "862": { alpha2: "VE", capitalHebrew: "קראקס",          languageId: "spanish",    factHebrew: "בוונצואלה נמצא מפל המים הכי גבוה בעולם!", emojis: "💦🏞️🦜" },
+  "218": { alpha2: "EC", capitalHebrew: "קיטו",           languageId: "spanish",    factHebrew: "אקוודור יושבת בדיוק על קו המשווה — אפשר לעמוד בשני חצאי העולם!", emojis: "🌎🐢🌋" },
+  "068": { alpha2: "BO", capitalHebrew: "לה פאס",         languageId: "spanish",    factHebrew: "בבוליביה יש מדבר מלח ענק שנראה כמו מראה!", emojis: "🧂🦩🏔️" },
+  "600": { alpha2: "PY", capitalHebrew: "אסונסיון",       languageId: "spanish",    factHebrew: "בפרגוואי שותים 'טרֶרֶה' — משקה קר מעשבים!", emojis: "🧉🌿⚽" },
+  "858": { alpha2: "UY", capitalHebrew: "מונטווידאו",     languageId: "spanish",    factHebrew: "באורוגוואי יש יותר פרות מאנשים!", emojis: "🐄🧉🏖️" },
+  "328": { alpha2: "GY", capitalHebrew: "ג'ורג'טאון",     languageId: "english",    factHebrew: "בגיאנה יש מפל רחב ועוצמתי בלב יער הגשם!", emojis: "💦🦥🌴" },
+  "740": { alpha2: "SR", capitalHebrew: "פרמריבו",        languageId: "dutch",      factHebrew: "סורינם מכוסה כמעט כולה ביערות ירוקים!", emojis: "🌳🦋🛶" },
+
+  // ── Europe ─────────────────────────────────────────────────────────────────
+  "643": { alpha2: "RU", capitalHebrew: "מוסקבה",         languageId: "russian",    factHebrew: "רוסיה היא המדינה הכי גדולה בעולם — יש בה 11 שעונים שונים!", emojis: "🪆🐻❄️" },
+  "250": { alpha2: "FR", capitalHebrew: "פריז",           languageId: "french",     factHebrew: "במגדל אייפל יש 1,665 מדרגות!", emojis: "🗼🥐🧀" },
+  "276": { alpha2: "DE", capitalHebrew: "ברלין",          languageId: "german",     factHebrew: "בגרמניה יש טירה שנראית כמו מהאגדות — נוישוונשטיין!", emojis: "🏰🥨🚗" },
+  "380": { alpha2: "IT", capitalHebrew: "רומא",           languageId: "italian",    factHebrew: "באיטליה המציאו את הפיצה ואת הג'לטו!", emojis: "🍕🍨🏛️" },
+  "724": { alpha2: "ES", capitalHebrew: "מדריד",          languageId: "spanish",    factHebrew: "בספרד יש פסטיבל שבו זורקים עגבניות אחד על השני!", emojis: "🍅💃🥘" },
+  "826": { alpha2: "GB", capitalHebrew: "לונדון",         languageId: "english",    factHebrew: "בלונדון יש שעון ענק ומפורסם — הביג בן!", emojis: "🕰️👑☔" },
+  "804": { alpha2: "UA", capitalHebrew: "קייב",           languageId: "ukrainian",  factHebrew: "אוקראינה מגדלת המון חמניות — פרח השמש שלה!", emojis: "🌻🌾🥟" },
+  "616": { alpha2: "PL", capitalHebrew: "ורשה",           languageId: "polish",     factHebrew: "בפולין יש מכרה מלח עתיק עם פסלים מתחת לאדמה!", emojis: "🧂🥟🏰" },
+  "752": { alpha2: "SE", capitalHebrew: "שטוקהולם",       languageId: "swedish",    factHebrew: "בשוודיה בקיץ השמש כמעט לא שוקעת!", emojis: "🌞🫎🧱" },
+  "578": { alpha2: "NO", capitalHebrew: "אוסלו",          languageId: "norwegian",  factHebrew: "בנורווגיה רואים את הזוהר הצפוני — אורות קסומים בשמיים!", emojis: "🌌⛷️🐟" },
+  "246": { alpha2: "FI", capitalHebrew: "הלסינקי",        languageId: "finnish",    factHebrew: "בפינלנד גר סנטה קלאוס — בלפלנד המושלגת!", emojis: "🎅🦌🧖" },
+  "208": { alpha2: "DK", capitalHebrew: "קופנהגן",        languageId: "danish",     factHebrew: "בדנמרק המציאו את הלגו!", emojis: "🧱🧜‍♀️🚲" },
+  "528": { alpha2: "NL", capitalHebrew: "אמסטרדם",        languageId: "dutch",      factHebrew: "בהולנד יש יותר אופניים מאנשים!", emojis: "🚲🌷🧀" },
+  "056": { alpha2: "BE", capitalHebrew: "בריסל",          languageId: "dutch",      factHebrew: "בבלגיה מכינים את השוקולד הכי טעים בעולם!", emojis: "🍫🧇🍟" },
+  "756": { alpha2: "CH", capitalHebrew: "ברן",            languageId: "german",     factHebrew: "בשווייץ יש הרים מושלגים ורכבות שמטפסות עליהם!", emojis: "🏔️🚞🧀" },
+  "040": { alpha2: "AT", capitalHebrew: "וינה",           languageId: "german",     factHebrew: "באוסטריה נולד מוצרט — מלחין גאון מגיל 5!", emojis: "🎼🏔️🎻" },
+  "300": { alpha2: "GR", capitalHebrew: "אתונה",          languageId: "greek",      factHebrew: "ביוון בנו את האולימפיאדה הראשונה לפני 2,800 שנה!", emojis: "🏛️🫒🏅" },
+  "620": { alpha2: "PT", capitalHebrew: "ליסבון",         languageId: "portuguese", factHebrew: "מפורטוגל יצאו ספנים אמיצים לגלות את העולם!", emojis: "⛵🐟🥧" },
+  "642": { alpha2: "RO", capitalHebrew: "בוקרשט",         languageId: "romanian",   factHebrew: "ברומניה יש טירה מסתורית בהרי הקרפטים!", emojis: "🏰🐺⛰️" },
+  "100": { alpha2: "BG", capitalHebrew: "סופיה",          languageId: "bulgarian",  factHebrew: "בבולגריה יש עמק ורדים שמריח נפלא!", emojis: "🌹🏔️🧀" },
+  "203": { alpha2: "CZ", capitalHebrew: "פראג",           languageId: "czech",      factHebrew: "בפראג יש שעון אסטרונומי בן 600 שנה עם בובות!", emojis: "🕰️🏰🥨" },
+  "703": { alpha2: "SK", capitalHebrew: "ברטיסלבה",       languageId: "slovak",     factHebrew: "בסלובקיה יש מאות מערות קסומות עם נטיפים!", emojis: "🦇🏔️🏰" },
+  "348": { alpha2: "HU", capitalHebrew: "בודפשט",         languageId: "hungarian",  factHebrew: "בהונגריה המציאו את הקובייה ההונגרית!", emojis: "🧩🌉♨️" },
+  "191": { alpha2: "HR", capitalHebrew: "זאגרב",          languageId: "croatian",   factHebrew: "בקרואטיה המציאו את העניבה!", emojis: "👔🏖️⚽" },
+  "070": { alpha2: "BA", capitalHebrew: "סרייבו",         languageId: "croatian",   factHebrew: "בבוסניה יש גשר אבן עתיק ומפורסם שקופצים ממנו למים!", emojis: "🌉🏔️☕" },
+  "688": { alpha2: "RS", capitalHebrew: "בלגרד",          languageId: "serbian",    factHebrew: "בסרביה נפגשים שני נהרות גדולים — הדנובה והסאווה!", emojis: "🏞️🏰🎾" },
+  "499": { alpha2: "ME", capitalHebrew: "פודגוריצה",      languageId: "serbian",    factHebrew: "מונטנגרו פירושו 'ההר השחור' — והיא מלאה הרים!", emojis: "⛰️🏖️🦅" },
+  "008": { alpha2: "AL", capitalHebrew: "טירנה",          languageId: "albanian",   factHebrew: "באלבניה יש אלפי בונקרים קטנים שנראים כמו פטריות!", emojis: "🍄⛰️🏖️" },
+  "807": { alpha2: "MK", capitalHebrew: "סקופיה",         languageId: "macedonian", factHebrew: "במקדוניה יש אגם עתיק בן מיליוני שנים!", emojis: "🏞️🏛️🍇" },
+  "112": { alpha2: "BY", capitalHebrew: "מינסק",          languageId: "russian",    factHebrew: "בבלרוס חיים ביזונים ענקיים ביער עתיק!", emojis: "🦬🌲🥔" },
+  "498": { alpha2: "MD", capitalHebrew: "קישינב",         languageId: "romanian",   factHebrew: "במולדובה יש מרתף יין ענק — עיר שלמה מתחת לאדמה!", emojis: "🍇🏞️🥂" },
+  "233": { alpha2: "EE", capitalHebrew: "טאלין",          languageId: "estonian",   factHebrew: "באסטוניה יש יותר מ-2,000 איים!", emojis: "🏝️🏰💻" },
+  "428": { alpha2: "LV", capitalHebrew: "ריגה",           languageId: "latvian",    factHebrew: "בלטביה יש חופים ארוכים עם ענבר — אבן זהב מהים!", emojis: "🟠🌲🏖️" },
+  "440": { alpha2: "LT", capitalHebrew: "וילנה",          languageId: "lithuanian", factHebrew: "בליטא יש גבעה מכוסה באלפי צלבים צבעוניים!", emojis: "⛪🌲🥔" },
+  "352": { alpha2: "IS", capitalHebrew: "רייקיאוויק",     languageId: "icelandic",  factHebrew: "באיסלנד יש הרי געש וקרחונים — אש וקרח ביחד!", emojis: "🌋🧊♨️" },
+  "372": { alpha2: "IE", capitalHebrew: "דבלין",          languageId: "english",    factHebrew: "אירלנד ירוקה כל כך שקוראים לה 'אי האזמרגד'!", emojis: "🍀🌈🐑" },
+  "705": { alpha2: "SI", capitalHebrew: "ליובליאנה",      languageId: "slovenian",  factHebrew: "בסלובניה יש מערה עם רכבת קטנה בתוכה!", emojis: "🚂🏔️🐉" },
+
+  // ── Middle East ────────────────────────────────────────────────────────────
+  "376": { alpha2: "IL", capitalHebrew: "ירושלים",        languageId: "hebrew",     factHebrew: "בים המלח שלנו אפשר לצוף על המים בלי לשחות!", emojis: "🇮🇱🌊🏜️" },
+  "275": { alpha2: "PS", capitalHebrew: "רמאללה",         languageId: "arabic",     factHebrew: "כאן גדלים עצי זית עתיקים בני מאות שנים!", emojis: "🫒🌳🕊️" },
+  "400": { alpha2: "JO", capitalHebrew: "עמאן",           languageId: "arabic",     factHebrew: "בירדן נמצאת פטרה — עיר ורודה חצובה בסלע!", emojis: "🏛️🐪🌄" },
+  "422": { alpha2: "LB", capitalHebrew: "ביירות",         languageId: "arabic",     factHebrew: "בלבנון גדלים עצי ארז ענקיים — כמו שעל הדגל!", emojis: "🌲⛰️🧆" },
+  "760": { alpha2: "SY", capitalHebrew: "דמשק",           languageId: "arabic",     factHebrew: "דמשק היא אחת הערים העתיקות ביותר בעולם!", emojis: "🏺🕌🌹" },
+  "368": { alpha2: "IQ", capitalHebrew: "בגדד",           languageId: "arabic",     factHebrew: "בעיראק הומצא הכתב הראשון בעולם לפני 5,000 שנה!", emojis: "📜🏺🌴" },
+  "364": { alpha2: "IR", capitalHebrew: "טהרן",           languageId: "persian",    factHebrew: "באיראן אורגים שטיחים מפורסמים ויפהפיים!", emojis: "🧶🏔️🐆" },
+  "792": { alpha2: "TR", capitalHebrew: "אנקרה",          languageId: "turkish",    factHebrew: "בטורקיה טסים בכדורים פורחים מעל נופי אגדה!", emojis: "🎈🕌🥙" },
+  "682": { alpha2: "SA", capitalHebrew: "ריאד",           languageId: "arabic",     factHebrew: "בערב הסעודית יש מדבר ענק עם דיונות זהב!", emojis: "🐪🏜️🕌" },
+  "784": { alpha2: "AE", capitalHebrew: "אבו דאבי",       languageId: "arabic",     factHebrew: "בדובאי נמצא הבניין הכי גבוה בעולם — 828 מטר!", emojis: "🏙️🐪🏎️" },
+  "512": { alpha2: "OM", capitalHebrew: "מוסקט",          languageId: "arabic",     factHebrew: "בעומאן יש מבצרים עתיקים וצבי ים על החופים!", emojis: "🏰🐢⛵" },
+  "887": { alpha2: "YE", capitalHebrew: "צנעא",           languageId: "arabic",     factHebrew: "בתימן יש אי עם עצים שנראים כמו מטריות!", emojis: "🌂🌴🏺" },
+  "048": { alpha2: "BH", capitalHebrew: "מנאמה",          languageId: "arabic",     factHebrew: "בחריין היא ממלכה על אי קטן במפרץ!", emojis: "🏝️🕌🏎️" },
+  "634": { alpha2: "QA", capitalHebrew: "דוחה",           languageId: "arabic",     factHebrew: "בקטאר שיחקו את גביע העולם בכדורגל במדבר!", emojis: "⚽🏜️🏙️" },
+  "414": { alpha2: "KW", capitalHebrew: "כווית סיטי",     languageId: "arabic",     factHebrew: "בכווית יש מגדלי מים ענקיים בצורת כדורים!", emojis: "🗼🏜️🌊" },
+  "004": { alpha2: "AF", capitalHebrew: "קאבול",          languageId: "persian",    factHebrew: "באפגניסטן מגדלים רימונים מהמתוקים בעולם!", emojis: "🏔️🍇🪁" },
+  "586": { alpha2: "PK", capitalHebrew: "איסלאמאבאד",     languageId: "urdu",       factHebrew: "בפקיסטן נמצא K2 — ההר השני הכי גבוה בעולם!", emojis: "🏔️🏏🥭" },
+
+  // ── Central Asia ───────────────────────────────────────────────────────────
+  "398": { alpha2: "KZ", capitalHebrew: "אסטנה",          languageId: "kazakh",     factHebrew: "מקזחסטן משגרים חלליות לחלל!", emojis: "🚀🐎🏔️" },
+  "860": { alpha2: "UZ", capitalHebrew: "טשקנט",          languageId: "russian",    factHebrew: "באוזבקיסטן יש ערים כחולות יפהפיות על דרך המשי!", emojis: "🕌🐪🍉" },
+  "795": { alpha2: "TM", capitalHebrew: "אשגבט",          languageId: "russian",    factHebrew: "בטורקמניסטן בוער כבר 50 שנה מכתש אש במדבר!", emojis: "🔥🏜️🐎" },
+  "762": { alpha2: "TJ", capitalHebrew: "דושנבה",         languageId: "persian",    factHebrew: "טג'יקיסטן כמעט כולה הרים גבוהים ומושלגים!", emojis: "🏔️🦅🍎" },
+  "417": { alpha2: "KG", capitalHebrew: "בישקק",          languageId: "russian",    factHebrew: "בקירגיזסטן ישנים באוהלים עגולים — יוּרְטוֹת!", emojis: "⛺🐎🏔️" },
+
+  // ── Far East & South-East Asia ─────────────────────────────────────────────
+  "156": { alpha2: "CN", capitalHebrew: "בייג'ינג",       languageId: "chinese",    factHebrew: "החומה הסינית כל כך ארוכה — יותר מ-20,000 קילומטר!", emojis: "🐼🏯🥢" },
+  "392": { alpha2: "JP", capitalHebrew: "טוקיו",          languageId: "japanese",   factHebrew: "ביפן יש רכבות סופר-מהירות שנוסעות 300 קמ\"ש!", emojis: "🚄🌸🍣" },
+  "356": { alpha2: "IN", capitalHebrew: "ניו דלהי",       languageId: "hindi",      factHebrew: "בהודו נמצא הטאג' מהאל — ארמון לבן ומדהים!", emojis: "🕌🐘🍛" },
+  "410": { alpha2: "KR", capitalHebrew: "סיאול",          languageId: "korean",     factHebrew: "מדרום קוריאה הגיעו הקיפופ והקימצ'י!", emojis: "🎤🥋🍜" },
+  "408": { alpha2: "KP", capitalHebrew: "פיונגיאנג",      languageId: "korean",     factHebrew: "צפון קוריאה שוכנת בין הרים גבוהים ויפים!", emojis: "⛰️🚩🌸" },
+  "496": { alpha2: "MN", capitalHebrew: "אולן בטור",      languageId: "mongolian",  factHebrew: "במונגוליה ילדים לומדים לרכוב על סוסים מגיל 3!", emojis: "🐎🦅⛺" },
+  "764": { alpha2: "TH", capitalHebrew: "בנגקוק",         languageId: "thai",       factHebrew: "בתאילנד חיים פילים חכמים ומקדשים מוזהבים!", emojis: "🐘🛕🍍" },
+  "704": { alpha2: "VN", capitalHebrew: "האנוי",          languageId: "vietnamese", factHebrew: "בווייטנאם יש מפרץ עם אלפי איי סלע קסומים!", emojis: "🛶🌾🍜" },
+  "116": { alpha2: "KH", capitalHebrew: "פנום פן",        languageId: "khmer",      factHebrew: "בקמבודיה יש מקדש ענק בג'ונגל — אנגקור ואט!", emojis: "🛕🐒🌴" },
+  "418": { alpha2: "LA", capitalHebrew: "ויאנטיאן",       languageId: "lao",        factHebrew: "בלאוס שטים על נהר המקונג בין הרים ירוקים!", emojis: "🛶🌿🐘" },
+  "104": { alpha2: "MM", capitalHebrew: "נייפידו",        languageId: "burmese",    factHebrew: "במיאנמר יש פגודה מצופה זהב אמיתי!", emojis: "🛕✨🐈" },
+  "360": { alpha2: "ID", capitalHebrew: "ג'קרטה",         languageId: "indonesian", factHebrew: "אינדונזיה מורכבת מ-17,000 איים — והדרקון של קומודו גר שם!", emojis: "🦎🏝️🌋" },
+  "458": { alpha2: "MY", capitalHebrew: "קואלה לומפור",   languageId: "malay",      factHebrew: "במלזיה יש מגדלי תאומים ענקיים עם גשר ביניהם!", emojis: "🏙️🦧🌴" },
+  "608": { alpha2: "PH", capitalHebrew: "מנילה",          languageId: "filipino",   factHebrew: "בפיליפינים יש מדרגות אורז ירוקות על ההרים!", emojis: "🌾🏝️🥭" },
+  "050": { alpha2: "BD", capitalHebrew: "דאקה",           languageId: "bengali",    factHebrew: "בבנגלדש חי הטיגריס הבנגלי המלכותי!", emojis: "🐅🌊🛺" },
+  "524": { alpha2: "NP", capitalHebrew: "קטמנדו",         languageId: "nepali",     factHebrew: "בנפאל נמצא האוורסט — ההר הכי גבוה בעולם!", emojis: "🏔️🚩🦬" },
+  "144": { alpha2: "LK", capitalHebrew: "קולומבו",        languageId: "sinhala",    factHebrew: "בסרי לנקה גדל התה ומטיילים בה פילים!", emojis: "🍵🐘🏝️" },
+  "031": { alpha2: "AZ", capitalHebrew: "באקו",           languageId: "azerbaijani",factHebrew: "באזרבייג'ן יש גבעות בוץ קטנות שמבעבעות!", emojis: "🌋🔥🏙️" },
+  "268": { alpha2: "GE", capitalHebrew: "טביליסי",        languageId: "georgian",   factHebrew: "בגיאורגיה יש כתב עגול ויפה שרק היא משתמשת בו!", emojis: "🏔️🍇📜" },
+  "051": { alpha2: "AM", capitalHebrew: "ירוואן",         languageId: "armenian",   factHebrew: "ארמניה היא אחת המדינות העתיקות בעולם!", emojis: "⛪🏔️🍑" },
+  "158": { alpha2: "TW", capitalHebrew: "טאיפיי",         languageId: "chinese",    factHebrew: "בטייוואן יש גורד שחקים עם כדור ענק שמאזן אותו ברוח!", emojis: "🏙️🧋🥟" },
+
+  // ── Africa ─────────────────────────────────────────────────────────────────
+  "818": { alpha2: "EG", capitalHebrew: "קהיר",           languageId: "arabic",     factHebrew: "בפירמידה הגדולה במצרים יש יותר משני מיליון אבני ענק!", emojis: "🐫🛕🏜️" },
+  "710": { alpha2: "ZA", capitalHebrew: "פרטוריה",        languageId: "zulu",       factHebrew: "בדרום אפריקה אפשר לראות אריות, פילים וקרנפים בטבע!", emojis: "🦁🐘🦏" },
+  "566": { alpha2: "NG", capitalHebrew: "אבוג'ה",         languageId: "english",    factHebrew: "בניגריה גרים הכי הרבה אנשים באפריקה!", emojis: "🎬🥁🌍" },
+  "012": { alpha2: "DZ", capitalHebrew: "אלג'יר",         languageId: "arabic",     factHebrew: "אלג'יריה היא המדינה הכי גדולה באפריקה — רובה מדבר סהרה!", emojis: "🏜️🐪🕌" },
+  "504": { alpha2: "MA", capitalHebrew: "רבאט",           languageId: "arabic",     factHebrew: "במרוקו יש שווקים צבעוניים עם ריחות של תבלינים!", emojis: "🧡🐪🫖" },
+  "788": { alpha2: "TN", capitalHebrew: "תוניס",          languageId: "arabic",     factHebrew: "בתוניסיה צילמו סרטים מפורסמים בבתים עגולים במדבר!", emojis: "🎬🏜️🫒" },
+  "434": { alpha2: "LY", capitalHebrew: "טריפולי",        languageId: "arabic",     factHebrew: "בלוב נמדד אחד המקומות החמים ביותר בעולם!", emojis: "☀️🏜️🏛️" },
+  "729": { alpha2: "SD", capitalHebrew: "חרטום",          languageId: "arabic",     factHebrew: "בסודן יש יותר פירמידות מאשר במצרים!", emojis: "🛕🐪🏜️" },
+  "728": { alpha2: "SS", capitalHebrew: "ג'ובה",          languageId: "english",    factHebrew: "דרום סודן היא המדינה הכי צעירה בעולם!", emojis: "🐘🌍🎉" },
+  "231": { alpha2: "ET", capitalHebrew: "אדיס אבבה",      languageId: "amharic",    factHebrew: "באתיופיה גילו את פולי הקפה הראשונים בעולם!", emojis: "☕🦁⛰️" },
+  "404": { alpha2: "KE", capitalHebrew: "ניירובי",        languageId: "swahili",    factHebrew: "בקניה רצים אלופי המרתון של העולם — וחיות הספארי!", emojis: "🦒🏃🦓" },
+  "800": { alpha2: "UG", capitalHebrew: "קמפלה",          languageId: "english",    factHebrew: "באוגנדה חיים גורילות הרים ענקיות ועדינות!", emojis: "🦍🌳🍌" },
+  "834": { alpha2: "TZ", capitalHebrew: "דודומה",         languageId: "swahili",    factHebrew: "בטנזניה נמצא הקילימנג'רו — ההר הכי גבוה באפריקה!", emojis: "🏔️🦁🦓" },
+  "508": { alpha2: "MZ", capitalHebrew: "מפוטו",          languageId: "portuguese", factHebrew: "בחופי מוזמביק שוחים דולפינים ולווייתני ענק!", emojis: "🐬🏖️🐋" },
+  "450": { alpha2: "MG", capitalHebrew: "אנטננריבו",      languageId: "french",     factHebrew: "במדגסקר חיים למורים — קופים עם זנב פסים!", emojis: "🐒🌳🦎" },
+  "180": { alpha2: "CD", capitalHebrew: "קינשסה",         languageId: "french",     factHebrew: "בקונגו הדמוקרטית זורם נהר עמוק ועוצמתי בלב הג'ונגל!", emojis: "🦍🌊🌳" },
+  "178": { alpha2: "CG", capitalHebrew: "ברזוויל",        languageId: "french",     factHebrew: "בקונגו חיים תוכים אפורים חכמים שיודעים לחקות דיבור!", emojis: "🦜🌳🛶" },
+  "024": { alpha2: "AO", capitalHebrew: "לואנדה",         languageId: "portuguese", factHebrew: "באנגולה יש אנטילופה נדירה עם קרניים מסולסלות!", emojis: "🦌🌴💎" },
+  "516": { alpha2: "NA", capitalHebrew: "וינדהוק",        languageId: "english",    factHebrew: "בנמיביה יש דיונות חול אדומות ענקיות — הכי גבוהות בעולם!", emojis: "🏜️🦏🌅" },
+  "072": { alpha2: "BW", capitalHebrew: "גבורונה",        languageId: "english",    factHebrew: "בבוצוואנה חיים הכי הרבה פילים בעולם!", emojis: "🐘🌿🛶" },
+  "716": { alpha2: "ZW", capitalHebrew: "הרארה",          languageId: "english",    factHebrew: "בזימבבואה נמצאים מפלי ויקטוריה האדירים!", emojis: "💦🐘🌈" },
+  "894": { alpha2: "ZM", capitalHebrew: "לוסקה",          languageId: "english",    factHebrew: "בזמביה שומעים את מפלי ויקטוריה מרעימים מרחוק!", emojis: "💦🦒🌳" },
+  "466": { alpha2: "ML", capitalHebrew: "במאקו",          languageId: "french",     factHebrew: "במאלי יש מסגד ענק שבנוי כולו מבוץ!", emojis: "🕌🐪🥁" },
+  "562": { alpha2: "NE", capitalHebrew: "ניאמיי",         languageId: "french",     factHebrew: "בניז'ר חיים ג'ירפות אחרונות של מערב אפריקה!", emojis: "🦒🏜️🐪" },
+  "148": { alpha2: "TD", capitalHebrew: "נג'מנה",         languageId: "arabic",     factHebrew: "באגם צ'אד שוחים היפופוטמים!", emojis: "🦛🏜️🐪" },
+  "478": { alpha2: "MR", capitalHebrew: "נואקשוט",        languageId: "arabic",     factHebrew: "במאוריטניה יש 'עין' ענקית במדבר שרואים מהחלל!", emojis: "👁️🏜️🐪" },
+  "288": { alpha2: "GH", capitalHebrew: "אקרה",           languageId: "english",    factHebrew: "בגאנה גדל הקקאו שממנו מכינים שוקולד!", emojis: "🍫🥁🌴" },
+  "384": { alpha2: "CI", capitalHebrew: "ימוסוקרו",       languageId: "french",     factHebrew: "חוף השנהב מגדלת הכי הרבה קקאו בעולם!", emojis: "🍫🐘🌴" },
+  "120": { alpha2: "CM", capitalHebrew: "יאונדה",         languageId: "french",     factHebrew: "קמרון נקראת 'אפריקה הקטנה' — יש בה הכול: הרים, ים וג'ונגל!", emojis: "⚽🦁🌋" },
+  "706": { alpha2: "SO", capitalHebrew: "מוגדישו",        languageId: "somali",     factHebrew: "לסומליה יש את החוף הארוך ביותר באפריקה!", emojis: "🏖️🐪⛵" },
+  "686": { alpha2: "SN", capitalHebrew: "דקאר",           languageId: "french",     factHebrew: "בסנגל יש אגם ורוד באמת — בגלל אצות מיוחדות!", emojis: "🩷🌊🥁" },
+  "454": { alpha2: "MW", capitalHebrew: "לילונגווה",      languageId: "english",    factHebrew: "באגם מלאווי שוחים יותר מיני דגים מכל אגם בעולם!", emojis: "🐟🏞️🛶" },
+  "140": { alpha2: "CF", capitalHebrew: "בנגי",           languageId: "french",     factHebrew: "ביערות המדינה חיים פילי יער קטנים וביישנים!", emojis: "🐘🌳🦋" },
+  "266": { alpha2: "GA", capitalHebrew: "ליברוויל",       languageId: "french",     factHebrew: "בגבון היפופוטמים גולשים בגלים על החוף!", emojis: "🦛🏄🌴" },
+  "854": { alpha2: "BF", capitalHebrew: "ואגאדוגו",       languageId: "french",     factHebrew: "בורקינה פאסו פירושו 'ארץ האנשים הישרים'!", emojis: "🥁🌾🐊" },
+  "324": { alpha2: "GN", capitalHebrew: "קונאקרי",        languageId: "french",     factHebrew: "גינאה נקראת 'מגדל המים של אפריקה' — נהרות רבים מתחילים בה!", emojis: "💦⛰️🥁" },
+  "232": { alpha2: "ER", capitalHebrew: "אסמרה",          languageId: "arabic",     factHebrew: "באריתריאה יש עיר שלמה שנראית כמו מוזיאון!", emojis: "🏛️🌊🐪" },
+  "646": { alpha2: "RW", capitalHebrew: "קיגלי",          languageId: "french",     factHebrew: "רואנדה נקראת 'ארץ אלף הגבעות'!", emojis: "🦍⛰️🌿" },
+  "108": { alpha2: "BI", capitalHebrew: "גיטגה",          languageId: "french",     factHebrew: "בבורונדי מתופפים על תופים ענקיים בטקסים מיוחדים!", emojis: "🥁🏞️🐊" },
+  "768": { alpha2: "TG", capitalHebrew: "לומה",           languageId: "french",     factHebrew: "בטוגו יש בתים מיוחדים עשויים מבוץ כמו טירות קטנות!", emojis: "🏰🌴🥁" },
+  "204": { alpha2: "BJ", capitalHebrew: "פורטו נובו",     languageId: "french",     factHebrew: "בבנין יש כפר שלם שבנוי על המים!", emojis: "🛶🏘️🌊" },
+  "430": { alpha2: "LR", capitalHebrew: "מונרוביה",       languageId: "english",    factHebrew: "בליבריה חיים היפופוטמים ננסיים חמודים!", emojis: "🦛🌴🌊" },
+  "694": { alpha2: "SL", capitalHebrew: "פריטאון",        languageId: "english",    factHebrew: "בסיירה לאונה יש אי מיוחד שבו שומרים על שימפנזים!", emojis: "🐵🏝️🌴" },
+  "270": { alpha2: "GM", capitalHebrew: "בנג'ול",         languageId: "english",    factHebrew: "גמביה היא המדינה הכי קטנה באפריקה — צרה כמו נהר!", emojis: "🛶🐊🌊" },
+  "262": { alpha2: "DJ", capitalHebrew: "ג'יבוטי",        languageId: "french",     factHebrew: "בג'יבוטי יש אגם מלוח כל כך שצפים בו כמו בים המלח!", emojis: "🌊🦩🌋" },
+
+  // ── Australia / Oceania ────────────────────────────────────────────────────
+  "036": { alpha2: "AU", capitalHebrew: "קנברה",          languageId: "english",    factHebrew: "באוסטרליה הקנגורו לא יכול ללכת אחורה — רק קדימה!", emojis: "🦘🐨🏄" },
+  "554": { alpha2: "NZ", capitalHebrew: "ולינגטון",       languageId: "english",    factHebrew: "בניו זילנד יש יותר כבשים מאנשים — פי 5!", emojis: "🐑🥝⛰️" },
+  "598": { alpha2: "PG", capitalHebrew: "פורט מורסבי",    languageId: "english",    factHebrew: "בפפואה גינאה החדשה מדברים יותר מ-800 שפות!", emojis: "🦜🌺🛶" },
+  "242": { alpha2: "FJ", capitalHebrew: "סובה",           languageId: "english",    factHebrew: "פיג'י מורכבת מ-330 איים טרופיים!", emojis: "🏝️🐠🥥" },
+};
+
+export const getCountryDetails = (id: string): CountryDetails | undefined => COUNTRY_DETAILS[id];

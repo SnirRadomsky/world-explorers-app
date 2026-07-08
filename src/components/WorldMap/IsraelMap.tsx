@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { geoMercator, geoPath } from "d3-geo";
+import { geoMercator, geoPath, type GeoPermissibleObjects } from "d3-geo";
 import {
   ISRAEL_CITIES,
   ISRAEL_CITIES_BY_ID,
@@ -12,6 +12,18 @@ import ConfettiEffect from "../Overlays/ConfettiEffect";
 import MilestoneModal from "../Overlays/MilestoneModal";
 
 const GEO_URL = "/israel-districts.json";
+
+interface DistrictFeature {
+  properties?: { iso_3166_2?: string };
+}
+
+interface DistrictCollection {
+  features: DistrictFeature[];
+}
+
+// A tap selects the city visually closest to the finger, within this screen
+// radius (grows a bit when zoomed out so small clusters stay tappable).
+const TAP_RADIUS_PX = 42;
 
 const zoomBtnStyle: React.CSSProperties = {
   width: 48,
@@ -34,13 +46,14 @@ interface Props {
   discoveredSet: Set<string>;
   onDiscover: (id: string) => boolean;
   speakHebrew: (text: string) => void;
+  playSfx?: (name: "pop" | "chime") => void;
 }
 
-export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Props) {
+export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew, playSfx }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ w: 400, h: 700 });
-  const [geoData, setGeoData] = useState<any>(null);
+  const [geoData, setGeoData] = useState<DistrictCollection | null>(null);
 
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -82,7 +95,7 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
 
   const projection = useMemo(() => {
     if (!geoData) return null;
-    return geoMercator().fitSize([size.w, size.h], geoData);
+    return geoMercator().fitSize([size.w, size.h], geoData as unknown as GeoPermissibleObjects);
   }, [geoData, size]);
 
   // For each city, project its coordinates to screen pixels
@@ -106,68 +119,15 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
     return map;
   }, []);
 
-  // Handle city click — triggered by clicking anywhere in the district, hitting nearest city
-  const handleDistrictClick = useCallback(
-    (districtId: string, clickX: number, clickY: number, event: React.MouseEvent) => {
-      const cities = citiesByDistrict.get(districtId) ?? [];
-      // Find the undiscovered city nearest the click point
-      const undiscovered = cities.filter((c) => !discoveredSet.has(c.id));
-      const pool = undiscovered.length > 0 ? undiscovered : cities;
-
-      let nearest = pool[0];
-      let minDist = Infinity;
-      for (const c of pool) {
-        const pt = cityPoints.get(c.id);
-        if (!pt) continue;
-        // adjust for pan/scale transform
-        const tx = (pt[0] - 0) * scale + pan.x;
-        const ty = (pt[1] - 0) * scale + pan.y;
-        const dist = Math.hypot(clickX - tx, clickY - ty);
-        if (dist < minDist) {
-          minDist = dist;
-          nearest = c;
-        }
-      }
-      if (!nearest) return;
-
-      const district = DISTRICT_BY_ID.get(nearest.districtId);
-      const color = district?.color ?? "#3b82f6";
-
-      setActiveBubble({ name: nearest.nameHebrew, subName: district?.nameHebrew, color });
-      setConfettiOrigin({
-        x: event.clientX / window.innerWidth,
-        y: event.clientY / window.innerHeight,
-      });
-
-      const isNew = onDiscover(nearest.id);
-      if (isNew) setConfettiTrigger((p) => p + 1);
-      speakHebrew(nearest.nameHebrew);
-
-      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
-      dismissTimerRef.current = setTimeout(() => setActiveBubble(null), 2800);
-
-      if (isNew) {
-        const newTotal = Array.from(discoveredSet).length + 1;
-        if (newTotal === TOTAL_ISRAEL_CITIES) {
-          setTimeout(() => {
-            setMilestoneMessage("גילית את כל ערי ישראל! 🇮🇱✨");
-            setMilestoneOpen(true);
-          }, 1500);
-        }
-      }
-    },
-    [citiesByDistrict, cityPoints, discoveredSet, onDiscover, speakHebrew, scale, pan]
-  );
-
-  // Direct city click (dot)
-  const handleCityClick = useCallback(
+  // Shared discovery trigger for a chosen city.
+  const discoverCity = useCallback(
     (cityId: string, event: React.MouseEvent) => {
-      event.stopPropagation();
       const city = ISRAEL_CITIES_BY_ID.get(cityId);
       if (!city) return;
       const district = DISTRICT_BY_ID.get(city.districtId);
       const color = district?.color ?? "#3b82f6";
 
+      playSfx?.("pop");
       setActiveBubble({ name: city.nameHebrew, subName: district?.nameHebrew, color });
       setConfettiOrigin({
         x: event.clientX / window.innerWidth,
@@ -175,7 +135,10 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
       });
 
       const isNew = onDiscover(cityId);
-      if (isNew) setConfettiTrigger((p) => p + 1);
+      if (isNew) {
+        setConfettiTrigger((p) => p + 1);
+        playSfx?.("chime");
+      }
       speakHebrew(city.nameHebrew);
 
       if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
@@ -188,7 +151,65 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
         }, 1500);
       }
     },
-    [onDiscover, speakHebrew, discoveredSet]
+    [onDiscover, speakHebrew, discoveredSet, playSfx]
+  );
+
+  /**
+   * Improved city detection: a tap picks the city visually closest to the
+   * finger (screen-space, zoom-aware). Only if no city is near enough does the
+   * tap fall back to "nearest undiscovered city in the tapped district".
+   */
+  const handleDistrictClick = useCallback(
+    (districtId: string, clickX: number, clickY: number, event: React.MouseEvent) => {
+      const toScreen = (pt: [number, number]): [number, number] => [
+        pt[0] * scale + pan.x,
+        pt[1] * scale + pan.y,
+      ];
+
+      // 1) Nearest city anywhere within the tap radius wins.
+      let nearestAny: { id: string; dist: number } | null = null;
+      for (const c of ISRAEL_CITIES) {
+        const pt = cityPoints.get(c.id);
+        if (!pt) continue;
+        const [tx, ty] = toScreen(pt);
+        const dist = Math.hypot(clickX - tx, clickY - ty);
+        if (!nearestAny || dist < nearestAny.dist) nearestAny = { id: c.id, dist };
+      }
+      const radius = TAP_RADIUS_PX * (scale < 1.5 ? 1.15 : 1); // a bit more forgiving when zoomed out
+      if (nearestAny && nearestAny.dist <= radius) {
+        discoverCity(nearestAny.id, event);
+        return;
+      }
+
+      // 2) Fallback: nearest undiscovered city in this district.
+      const cities = citiesByDistrict.get(districtId) ?? [];
+      const undiscovered = cities.filter((c) => !discoveredSet.has(c.id));
+      const pool = undiscovered.length > 0 ? undiscovered : cities;
+
+      let nearest: (typeof pool)[number] | null = null;
+      let minDist = Infinity;
+      for (const c of pool) {
+        const pt = cityPoints.get(c.id);
+        if (!pt) continue;
+        const [tx, ty] = toScreen(pt);
+        const dist = Math.hypot(clickX - tx, clickY - ty);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = c;
+        }
+      }
+      if (nearest) discoverCity(nearest.id, event);
+    },
+    [citiesByDistrict, cityPoints, discoveredSet, scale, pan, discoverCity]
+  );
+
+  // Direct city click (dot)
+  const handleCityClick = useCallback(
+    (cityId: string, event: React.MouseEvent) => {
+      event.stopPropagation();
+      discoverCity(cityId, event);
+    },
+    [discoverCity]
   );
 
   const dismissBubble = useCallback(() => {
@@ -224,7 +245,7 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
         midY: (pts[0].y + pts[1].y) / 2,
       };
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const pt = getSVGPoint(e.clientX, e.clientY);
@@ -256,7 +277,7 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
       panRef.current = newPan;
       setPan(newPan);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     activePointers.current.delete(e.pointerId);
@@ -334,7 +355,7 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
       >
         <g transform={transform}>
           {/* District polygons — colored, clickable */}
-          {geoData && pathGen && geoData.features.map((feature: any) => {
+          {geoData && pathGen && geoData.features.map((feature, i) => {
             const distId: string = feature.properties?.iso_3166_2 ?? "";
             const district = DISTRICT_BY_ID.get(distId);
             if (!district) return null;
@@ -349,20 +370,34 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew }: Pr
               ? district.color + "bb"
               : district.color + "66";
 
+            const centroid = allDone ? pathGen.centroid(feature as GeoPermissibleObjects) : null;
+
             return (
-              <path
-                key={distId}
-                d={pathGen(feature) ?? ""}
-                fill={fill}
-                stroke="#ffffff"
-                strokeWidth={2 / scale}
-                style={{ cursor: "pointer", transition: "fill 0.25s ease" }}
-                onClick={(e) => {
-                  if (totalMovement.current > 8) return;
-                  const rect = svgRef.current!.getBoundingClientRect();
-                  handleDistrictClick(distId, e.clientX - rect.left, e.clientY - rect.top, e);
-                }}
-              />
+              <g key={distId || i}>
+                <path
+                  d={pathGen(feature as GeoPermissibleObjects) ?? ""}
+                  fill={fill}
+                  stroke="#ffffff"
+                  strokeWidth={2 / scale}
+                  style={{ cursor: "pointer", transition: "fill 0.25s ease" }}
+                  onClick={(e) => {
+                    if (totalMovement.current > 8) return;
+                    const rect = svgRef.current!.getBoundingClientRect();
+                    handleDistrictClick(distId, e.clientX - rect.left, e.clientY - rect.top, e);
+                  }}
+                />
+                {/* District complete badge */}
+                {centroid && Number.isFinite(centroid[0]) && (
+                  <text
+                    x={centroid[0]}
+                    y={centroid[1]}
+                    textAnchor="middle"
+                    style={{ fontSize: 26 / scale, pointerEvents: "none" }}
+                  >
+                    ✅
+                  </text>
+                )}
+              </g>
             );
           })}
 
