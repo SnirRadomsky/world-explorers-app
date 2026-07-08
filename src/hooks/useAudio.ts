@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { TextToSpeech } from "@capacitor-community/text-to-speech";
 
 const MUTE_KEY = "world-explorers-muted";
@@ -10,6 +10,13 @@ export interface AudioControls {
   isMuted: boolean;
   toggleMute: () => void;
   speakHebrew: (text: string) => void;
+  /** Speak in any language; falls back to Hebrew (`fallbackHebrew`) if the voice is missing. */
+  speakLang: (text: string, lang: string, fallbackHebrew?: string) => void;
+}
+
+function sanitize(text: string): string {
+  // Strip quotation marks that confuse Hebrew TTS (e.g. ארה"ב)
+  return text.replace(/["""״׳']/g, "");
 }
 
 export function useAudio(): AudioControls {
@@ -20,6 +27,21 @@ export function useAudio(): AudioControls {
       return false;
     }
   });
+
+  // Languages the native TTS engine supports (Capacitor only), lazily fetched.
+  const supportedLangsRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!isCapacitor) return;
+    TextToSpeech.getSupportedLanguages()
+      .then(({ languages }) => {
+        supportedLangsRef.current = new Set(
+          (languages ?? []).map((l: string) => l.toLowerCase().replace("_", "-"))
+        );
+      })
+      .catch(() => {
+        supportedLangsRef.current = null; // unknown — just try and let it fail silently
+      });
+  }, []);
 
   useEffect(() => {
     try {
@@ -33,38 +55,72 @@ export function useAudio(): AudioControls {
     setIsMuted((prev) => !prev);
   }, []);
 
-  const speakHebrew = useCallback(
-    (text: string) => {
-      if (isMuted) return;
-
-      // Strip quotation marks that confuse Hebrew TTS (e.g. ארה"ב)
-      const sanitized = text.replace(/["""״׳']/g, "");
+  const speakWith = useCallback(
+    (text: string, lang: string, rate: number, onError?: () => void) => {
+      const sanitized = sanitize(text);
 
       if (isCapacitor) {
-        // Native Android/iOS TTS
         TextToSpeech.stop().catch(() => {});
         TextToSpeech.speak({
           text: sanitized,
-          lang: "he-IL",
-          rate: 0.85,
+          lang,
+          rate,
           pitch: 1.1,
           volume: 1.0,
           category: "ambient",
-        }).catch(() => {});
+        }).catch(() => onError?.());
       } else if (window.speechSynthesis) {
-        // Browser fallback
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(sanitized);
-        utterance.lang = "he-IL";
-        utterance.rate = 0.85;
+        utterance.lang = lang;
+        utterance.rate = rate;
         utterance.pitch = 1.1;
         const voices = window.speechSynthesis.getVoices();
-        const hebrewVoice = voices.find((v) => v.lang.startsWith("he"));
-        if (hebrewVoice) utterance.voice = hebrewVoice;
+        const prefix = lang.split("-")[0];
+        const voice = voices.find((v) => v.lang.toLowerCase().startsWith(prefix.toLowerCase()));
+        if (voice) utterance.voice = voice;
+        else if (onError) {
+          // No matching voice in the browser — use the fallback path.
+          onError();
+          return;
+        }
         window.speechSynthesis.speak(utterance);
       }
     },
-    [isMuted]
+    []
+  );
+
+  const speakHebrew = useCallback(
+    (text: string) => {
+      if (isMuted) return;
+      speakWith(text, "he-IL", 0.85);
+    },
+    [isMuted, speakWith]
+  );
+
+  const speakLang = useCallback(
+    (text: string, lang: string, fallbackHebrew?: string) => {
+      if (isMuted) return;
+
+      const fallback = () => {
+        if (fallbackHebrew) speakWith(fallbackHebrew, "he-IL", 0.8);
+      };
+
+      // If we know the native engine's languages and this one is missing → fallback.
+      const known = supportedLangsRef.current;
+      if (isCapacitor && known && known.size > 0) {
+        const lower = lang.toLowerCase();
+        const prefix = lower.split("-")[0];
+        const ok = [...known].some((l) => l === lower || l.startsWith(prefix));
+        if (!ok) {
+          fallback();
+          return;
+        }
+      }
+
+      speakWith(text, lang, 0.75, fallback);
+    },
+    [isMuted, speakWith]
   );
 
   // Pre-load browser voices (no-op on Android WebView)
@@ -77,5 +133,5 @@ export function useAudio(): AudioControls {
       window.speechSynthesis.removeEventListener("voiceschanged", handleVoicesChanged);
   }, []);
 
-  return { isMuted, toggleMute, speakHebrew };
+  return { isMuted, toggleMute, speakHebrew, speakLang };
 }

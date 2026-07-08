@@ -6,9 +6,11 @@ interface NameRevealBubbleProps {
   color: string;
   position: { x: number; y: number } | null;
   onDismiss: () => void;
+  /** Optional "more info" action — shows an עוד! button that opens a card. */
+  onMore?: () => void;
 }
 
-export default function NameRevealBubble({ name, subName, color, onDismiss }: NameRevealBubbleProps) {
+export default function NameRevealBubble({ name, subName, color, onDismiss, onMore }: NameRevealBubbleProps) {
   return (
     <AnimatePresence>
       {name && (
@@ -69,6 +71,29 @@ export default function NameRevealBubble({ name, subName, color, onDismiss }: Na
               >
                 {subName}
               </div>
+            )}
+            {onMore && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMore();
+                }}
+                style={{
+                  marginTop: 10,
+                  border: "none",
+                  borderRadius: 999,
+                  background: "rgba(255,255,255,0.95)",
+                  color: "#1e293b",
+                  fontFamily: "Heebo, sans-serif",
+                  fontWeight: 900,
+                  fontSize: 18,
+                  padding: "8px 26px",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
+                }}
+              >
+                עוד! 👀
+              </button>
             )}
           </motion.div>
         </motion.div>
