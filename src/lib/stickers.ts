@@ -26,6 +26,8 @@ export interface ProgressSnapshot {
   seasonsSeen?: number;
   oceanDiscovered?: Set<string>;
   visitedCount?: number;
+  dailyStreak?: number;
+  flagsGold?: boolean;
 }
 
 const CONTINENT_STICKERS: StickerDef[] = [
@@ -53,6 +55,8 @@ export const STICKERS: StickerDef[] = [
   { id: "st-tourist",   emoji: "🧳", nameHebrew: "תייר עולמי",    howHebrew: "בקרו ב-10 מדינות בתלת־ממד" },
   { id: "st-linguist",  emoji: "🗣️", nameHebrew: "בלשן קטן",      howHebrew: "האזינו למילים ב-5 שפות" },
   { id: "st-quiz",      emoji: "🥇", nameHebrew: "אלוף החידונים",  howHebrew: "השיגו 3 מדליות זהב בחידונים" },
+  { id: "st-flags",     emoji: "🚩", nameHebrew: "מלך הדגלים",     howHebrew: "השיגו מדליית זהב בחידון הדגלים" },
+  { id: "st-daily",     emoji: "🔥", nameHebrew: "נחושים",         howHebrew: "סיימו את אתגר היום 3 ימים ברצף" },
 ];
 
 export const STICKER_BY_ID = new Map(STICKERS.map((s) => [s.id, s]));
@@ -98,6 +102,8 @@ export function computeUnlockedStickers(p: ProgressSnapshot): Set<string> {
   if (DEEP_CREATURE_IDS.every((id) => ocean.has(id))) unlocked.add("st-deep");
   if (ocean.size >= TOTAL_MARINE_CREATURES) unlocked.add("st-ocean");
   if ((p.visitedCount ?? 0) >= 10) unlocked.add("st-tourist");
+  if (p.flagsGold) unlocked.add("st-flags");
+  if ((p.dailyStreak ?? 0) >= 3) unlocked.add("st-daily");
   if (p.languagesLearned >= 5) unlocked.add("st-linguist");
   if (p.goldMedals >= 3) unlocked.add("st-quiz");
 

@@ -1,6 +1,6 @@
 // Quiz engine — pure logic, unit-tested. UI lives in components/Quiz.
 
-export type QuizCategory = "continents" | "countries" | "israel" | "planets";
+export type QuizCategory = "continents" | "countries" | "israel" | "planets" | "flags" | "marine";
 
 export interface QuizItem {
   id: string;
@@ -32,6 +32,9 @@ export const STARTER_POOLS: Record<QuizCategory, string[]> = {
   countries: ["376", "840", "250", "076", "818", "156", "392", "826", "380", "724", "036", "643"],
   israel: ["il-jerusalem", "il-tel-aviv", "il-haifa", "il-beersheba", "il-eilat", "il-netanya", "il-tiberias", "il-ashdod"],
   planets: ["sun", "earth", "moon", "mars", "jupiter", "saturn"],
+  // flags reuse the "famous countries" set; marine leans on iconic sea animals
+  flags: ["840", "250", "076", "826", "380", "724", "392", "156", "036", "643"],
+  marine: ["clownfish", "dolphin", "sea-turtle", "reef-shark", "blue-whale", "octopus", "penguin", "seahorse"],
 };
 
 /** Deterministic-friendly shuffle (Fisher–Yates) with injectable rng for tests. */
@@ -90,6 +93,18 @@ export function newRound(
   return {
     category,
     questions: buildQuestionPool(allItems, discoveredIds, STARTER_POOLS[category], rng),
+    index: 0,
+    correctFirstTry: 0,
+    correctTotal: 0,
+    finished: false,
+  };
+}
+
+/** Build a round from an explicit, pre-chosen list of targets (daily challenge). */
+export function roundFromItems(category: QuizCategory, questions: QuizItem[]): QuizRound {
+  return {
+    category,
+    questions,
     index: 0,
     correctFirstTry: 0,
     correctTotal: 0,

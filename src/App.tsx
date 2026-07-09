@@ -60,6 +60,12 @@ export default function App() {
   const [flight, setFlight] = useState<Flight | null>(null);
   const [oceanStart, setOceanStart] = useState<OceanId | undefined>(undefined);
 
+  // Local calendar day (YYYY-MM-DD) for the daily challenge — offline, no clock in pure logic.
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+
   const { isMuted, toggleMute, speakHebrew, speakLang } = useAudio();
   const { play } = useSfx(isMuted);
 
@@ -319,10 +325,16 @@ export default function App() {
             countries: countriesDiscovery.discovered,
             israel: israelDiscovery.discovered,
             planets: planetsDiscovery.discovered,
+            flags: countriesDiscovery.discovered,
+            marine: oceanDiscovery.discovered,
           }}
           speakHebrew={speakHebrew}
           playSfx={play}
           recordQuizResult={stickers.recordQuizResult}
+          today={todayStr}
+          dailyStreak={stickers.dailyStreak}
+          dailyDoneToday={stickers.dailyDoneToday(todayStr)}
+          onCompleteDaily={() => stickers.completeDaily(todayStr)}
         />
       )}
 

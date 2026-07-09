@@ -1,30 +1,37 @@
-// Quiz screen: pick a category, then "איפה X?" — find it on the tap-board.
+// Quiz screen: pick a category (or the daily challenge), then find the answer
+// — "איפה X?" on the tap-board for map categories, or a 4-card choice board
+// for flags & marine. Everything is spoken (zero reading required).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   newRound,
+  roundFromItems,
   answer,
   freshQuestion,
   medalFor,
   starsFor,
   MEDAL_HEBREW,
   MEDAL_EMOJI,
-  ROUND_LENGTH,
   type QuizCategory,
   type QuizRound,
   type QuizQuestion,
   type QuizItem,
 } from "../../lib/quiz";
+import { buildAllOptions } from "../../lib/choiceQuiz";
+import { dailyChallenge } from "../../lib/dailyChallenge";
 import { CONTINENTS } from "../../data/continents";
 import { COUNTRIES } from "../../data/countries";
+import { getCountryDetails, flagEmoji } from "../../data/countryDetails";
 import { ISRAEL_CITIES } from "../../data/israelCities";
 import { PLANETS } from "../../data/planets";
+import { MARINE_LIFE, CREATURE_BY_ID } from "../../data/marineLife";
 import type { SfxName } from "../../hooks/useSfx";
 import ConfettiEffect from "../Overlays/ConfettiEffect";
 import QuizWorldMap from "./QuizWorldMap";
 import QuizIsraelMap from "./QuizIsraelMap";
 import QuizPlanets from "./QuizPlanets";
+import QuizChoiceBoard, { type ChoiceOption } from "./QuizChoiceBoard";
 
 const PRAISES = ["כל הכבוד!", "מעולה!", "וואו, נכון!", "יש! מצאתם!", "אלופים!"];
 const OOPS = ["אופס, נסו שוב!", "כמעט! עוד ניסיון", "לא נורא, נסו שוב!"];
@@ -34,51 +41,120 @@ const CATEGORIES: { id: QuizCategory; label: string; emoji: string; gradient: st
   { id: "countries", label: "מדינות", emoji: "🗺️", gradient: "linear-gradient(135deg,#10b981,#059669)" },
   { id: "israel", label: "ערי ישראל", emoji: "🇮🇱", gradient: "linear-gradient(135deg,#f97316,#ea580c)" },
   { id: "planets", label: "כוכבי לכת", emoji: "🪐", gradient: "linear-gradient(135deg,#8b5cf6,#6d28d9)" },
+  { id: "flags", label: "דגלים", emoji: "🚩", gradient: "linear-gradient(135deg,#ec4899,#be185d)" },
+  { id: "marine", label: "חיות ים", emoji: "🐠", gradient: "linear-gradient(135deg,#06b6d4,#0e7490)" },
 ];
+
+const FLAG_COUNTRIES = COUNTRIES.filter((c) => !!getCountryDetails(c.id));
 
 const CATALOGS: Record<QuizCategory, QuizItem[]> = {
   continents: CONTINENTS.map((c) => ({ id: c.id, nameHebrew: c.nameHebrew })),
   countries: COUNTRIES.map((c) => ({ id: c.id, nameHebrew: c.nameHebrew })),
   israel: ISRAEL_CITIES.map((c) => ({ id: c.id, nameHebrew: c.nameHebrew })),
   planets: PLANETS.map((p) => ({ id: p.id, nameHebrew: p.nameHebrew })),
+  flags: FLAG_COUNTRIES.map((c) => ({ id: c.id, nameHebrew: c.nameHebrew })),
+  marine: MARINE_LIFE.map((c) => ({ id: c.id, nameHebrew: c.nameHebrew })),
 };
+
+const CATALOG_IDS: Record<QuizCategory, string[]> = Object.fromEntries(
+  (Object.keys(CATALOGS) as QuizCategory[]).map((k) => [k, CATALOGS[k].map((i) => i.id)]),
+) as Record<QuizCategory, string[]>;
+
+const CHOICE_CATEGORIES: QuizCategory[] = ["flags", "marine"];
+const CHOICE_ACCENT: Record<string, string> = { flags: "#ec4899", marine: "#06b6d4" };
+
+function isChoice(cat: QuizCategory): boolean {
+  return CHOICE_CATEGORIES.includes(cat);
+}
+
+function questionText(cat: QuizCategory, name: string): string {
+  if (cat === "flags") return `מצאו את הדגל של ${name}`;
+  if (cat === "marine") return `מצאו את ${name}`;
+  return `איפה ${name}?`;
+}
+
+function toChoiceOption(cat: QuizCategory, id: string): ChoiceOption {
+  if (cat === "flags") {
+    const d = getCountryDetails(id);
+    return { id, emoji: d ? flagEmoji(d.alpha2) : "🏳️" };
+  }
+  const c = CREATURE_BY_ID.get(id);
+  return { id, emoji: c?.emoji ?? "🐟" };
+}
 
 interface QuizViewProps {
   discovered: Record<QuizCategory, Set<string>>;
   speakHebrew: (text: string) => void;
   playSfx: (name: SfxName) => void;
   recordQuizResult: (category: string, stars: number, isGold: boolean) => void;
+  /** daily-challenge integration */
+  today: string;
+  dailyStreak: number;
+  dailyDoneToday: boolean;
+  onCompleteDaily: () => void;
 }
 
-export default function QuizView({ discovered, speakHebrew, playSfx, recordQuizResult }: QuizViewProps) {
+export default function QuizView({
+  discovered,
+  speakHebrew,
+  playSfx,
+  recordQuizResult,
+  today,
+  dailyStreak,
+  dailyDoneToday,
+  onCompleteDaily,
+}: QuizViewProps) {
   const [category, setCategory] = useState<QuizCategory | null>(null);
   const [round, setRound] = useState<QuizRound | null>(null);
   const [question, setQuestion] = useState<QuizQuestion | null>(null);
+  const [optionsMap, setOptionsMap] = useState<Record<string, string[]>>({});
+  const [isDaily, setIsDaily] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [locked, setLocked] = useState(false); // brief lock between questions
 
+  const beginRound = useCallback((cat: QuizCategory, r: QuizRound, daily: boolean) => {
+    setCategory(cat);
+    setRound(r);
+    setQuestion(freshQuestion(r, 0));
+    setIsDaily(daily);
+    setFeedback(null);
+    setLocked(false);
+    setOptionsMap(
+      isChoice(cat) ? buildAllOptions(r.questions.map((q) => q.id), CATALOG_IDS[cat], 4) : {},
+    );
+  }, []);
+
   const startRound = useCallback(
     (cat: QuizCategory) => {
-      const r = newRound(cat, CATALOGS[cat], discovered[cat]);
-      setCategory(cat);
-      setRound(r);
-      setQuestion(freshQuestion(r, 0));
-      setFeedback(null);
-      setLocked(false);
+      beginRound(cat, newRound(cat, CATALOGS[cat], discovered[cat]), false);
     },
-    [discovered]
+    [discovered, beginRound],
   );
+
+  const startDaily = useCallback(() => {
+    const pick = dailyChallenge(
+      today,
+      CATEGORIES.map((c) => c.id),
+      CATALOG_IDS,
+      5,
+    );
+    const cat = pick.category as QuizCategory;
+    const items = pick.targetIds
+      .map((id) => CATALOGS[cat].find((i) => i.id === id))
+      .filter((i): i is QuizItem => !!i);
+    beginRound(cat, roundFromItems(cat, items), true);
+  }, [today, beginRound]);
 
   // Announce each new question.
   const targetId = question?.target.id;
   const targetName = question?.target.nameHebrew;
   useEffect(() => {
-    if (targetName && round && !round.finished) {
-      speakHebrew(`איפה ${targetName}?`);
+    if (targetName && category && round && !round.finished) {
+      speakHebrew(questionText(category, targetName));
     }
-  }, [targetId, targetName, round, speakHebrew]);
+  }, [targetId, targetName, category, round, speakHebrew]);
 
   const finished = round?.finished ?? false;
 
@@ -88,11 +164,12 @@ export default function QuizView({ discovered, speakHebrew, playSfx, recordQuizR
     const medal = medalFor(round.correctFirstTry);
     const stars = starsFor(round.correctFirstTry);
     recordQuizResult(category, stars, medal === "gold");
+    if (isDaily && !dailyDoneToday) onCompleteDaily();
     playSfx(medal === "none" ? "chime" : "tada");
     speakHebrew(
       medal === "none"
         ? "כל הכבוד שניסיתם! בואו ננסה שוב"
-        : `מדהים! קיבלתם ${MEDAL_HEBREW[medal]}`
+        : `מדהים! קיבלתם ${MEDAL_HEBREW[medal]}`,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
@@ -128,13 +205,24 @@ export default function QuizView({ discovered, speakHebrew, playSfx, recordQuizR
         setTimeout(() => setFeedback(null), 1400);
       }
     },
-    [round, question, locked, playSfx, speakHebrew]
+    [round, question, locked, playSfx, speakHebrew],
   );
 
   const hintId = question && (question.hinted || question.revealed) ? question.target.id : null;
 
   const board = useMemo(() => {
-    if (!category) return null;
+    if (!category || !question) return null;
+    if (isChoice(category)) {
+      const opts = (optionsMap[question.target.id] ?? []).map((id) => toChoiceOption(category, id));
+      return (
+        <QuizChoiceBoard
+          options={opts}
+          hintId={hintId}
+          onTap={handleTap}
+          accent={CHOICE_ACCENT[category]}
+        />
+      );
+    }
     if (category === "continents" || category === "countries") {
       return <QuizWorldMap kind={category} hintId={hintId} onTap={handleTap} />;
     }
@@ -142,7 +230,7 @@ export default function QuizView({ discovered, speakHebrew, playSfx, recordQuizR
       return <QuizIsraelMap hintId={hintId} onTap={handleTap} />;
     }
     return <QuizPlanets hintId={hintId} onTap={handleTap} />;
-  }, [category, hintId, handleTap]);
+  }, [category, question, optionsMap, hintId, handleTap]);
 
   // ── Category picker ──
   if (!category || !round || !question) {
@@ -158,10 +246,42 @@ export default function QuizView({ discovered, speakHebrew, playSfx, recordQuizR
           <div style={{ fontSize: 44 }}>❓</div>
           <h2 style={{ fontWeight: 900, fontSize: 28, color: "#1a365d", margin: 0 }}>חידון מגלי העולם</h2>
           <p style={{ fontWeight: 700, fontSize: 15, color: "#2d4a7a", marginTop: 4 }}>
-            אני שואל — אתם מוצאים על המפה!
+            אני שואל — אתם מוצאים!
           </p>
         </div>
-        <div className="flex flex-col gap-3 w-full max-w-md">
+
+        {/* Daily challenge */}
+        <button
+          onClick={() => {
+            playSfx("pop");
+            startDaily();
+          }}
+          data-testid="quiz-daily"
+          className="border-none rounded-2xl cursor-pointer w-full max-w-md"
+          style={{
+            fontFamily: "Heebo, sans-serif",
+            background: dailyDoneToday
+              ? "linear-gradient(135deg,#94a3b8,#64748b)"
+              : "linear-gradient(135deg,#f59e0b,#ea580c)",
+            padding: "16px 20px",
+            boxShadow: "0 8px 24px rgba(245,158,11,0.3)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span style={{ textAlign: "right" }}>
+            <span style={{ fontWeight: 900, fontSize: 22, color: "white", display: "block" }}>
+              🔥 אתגר היום
+            </span>
+            <span style={{ fontWeight: 700, fontSize: 13, color: "rgba(255,255,255,0.92)" }}>
+              {dailyDoneToday ? "סיימתם היום! חזרו מחר" : "5 שאלות מיוחדות"} · רצף {dailyStreak} ימים
+            </span>
+          </span>
+          <span style={{ fontSize: 34 }}>{dailyDoneToday ? "✅" : "📅"}</span>
+        </button>
+
+        <div className="grid grid-cols-2 gap-3 w-full max-w-md">
           {CATEGORIES.map((c) => (
             <button
               key={c.id}
@@ -174,17 +294,17 @@ export default function QuizView({ discovered, speakHebrew, playSfx, recordQuizR
               style={{
                 fontFamily: "Heebo, sans-serif",
                 background: c.gradient,
-                padding: "16px 20px",
+                padding: "16px 18px",
                 boxShadow: "0 8px 24px rgba(30,41,120,0.25)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
               }}
             >
-              <span style={{ fontWeight: 800, fontSize: 24, color: "white", textShadow: "0 2px 6px rgba(0,0,0,0.25)" }}>
+              <span style={{ fontWeight: 800, fontSize: 20, color: "white", textShadow: "0 2px 6px rgba(0,0,0,0.25)" }}>
                 {c.label}
               </span>
-              <span style={{ fontSize: 30 }}>{c.emoji}</span>
+              <span style={{ fontSize: 28 }}>{c.emoji}</span>
             </button>
           ))}
         </div>
@@ -225,7 +345,7 @@ export default function QuizView({ discovered, speakHebrew, playSfx, recordQuizR
           }}
         >
           <button
-            onClick={() => speakHebrew(`איפה ${question.target.nameHebrew}?`)}
+            onClick={() => speakHebrew(questionText(category, question.target.nameHebrew))}
             aria-label="השמעה חוזרת"
             style={{
               border: "none",
@@ -240,8 +360,9 @@ export default function QuizView({ discovered, speakHebrew, playSfx, recordQuizR
           >
             🔊
           </button>
-          <div data-testid="quiz-question" style={{ fontWeight: 900, fontSize: "clamp(20px,4.5vw,30px)", color: "#0f172a", whiteSpace: "nowrap" }}>
-            איפה {question.target.nameHebrew}?
+          <div data-testid="quiz-question" style={{ fontWeight: 900, fontSize: "clamp(18px,4.2vw,28px)", color: "#0f172a", whiteSpace: "nowrap" }}>
+            {isDaily && <span style={{ color: "#ea580c" }}>🔥 </span>}
+            {questionText(category, question.target.nameHebrew)}
           </div>
         </motion.div>
       )}
@@ -339,25 +460,31 @@ export default function QuizView({ discovered, speakHebrew, playSfx, recordQuizR
                 {"☆".repeat(3 - stars)}
               </div>
               <div style={{ fontWeight: 700, fontSize: 16, color: "#475569" }}>
-                עניתם נכון בניסיון הראשון על {round.correctFirstTry} מתוך {ROUND_LENGTH} שאלות
+                {isDaily ? (
+                  <>סיימתם את אתגר היום! 🔥 רצף של {dailyStreak} ימים</>
+                ) : (
+                  <>ענו נכון בניסיון הראשון על {round.correctFirstTry} מתוך {round.questions.length} שאלות</>
+                )}
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 18, justifyContent: "center" }}>
-                <button
-                  onClick={() => startRound(category)}
-                  style={{
-                    border: "none",
-                    borderRadius: 16,
-                    background: "linear-gradient(135deg,#3b82f6,#6366f1)",
-                    color: "white",
-                    fontFamily: "Heebo, sans-serif",
-                    fontWeight: 900,
-                    fontSize: 17,
-                    padding: "12px 22px",
-                    cursor: "pointer",
-                  }}
-                >
-                  🔁 עוד סיבוב
-                </button>
+                {!isDaily && (
+                  <button
+                    onClick={() => startRound(category)}
+                    style={{
+                      border: "none",
+                      borderRadius: 16,
+                      background: "linear-gradient(135deg,#3b82f6,#6366f1)",
+                      color: "white",
+                      fontFamily: "Heebo, sans-serif",
+                      fontWeight: 900,
+                      fontSize: 17,
+                      padding: "12px 22px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    🔁 עוד סיבוב
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setCategory(null);
@@ -376,7 +503,7 @@ export default function QuizView({ discovered, speakHebrew, playSfx, recordQuizR
                     cursor: "pointer",
                   }}
                 >
-                  נושא אחר
+                  {isDaily ? "🏠 חזרה לחידון" : "נושא אחר"}
                 </button>
               </div>
             </motion.div>
