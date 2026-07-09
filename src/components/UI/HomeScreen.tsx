@@ -2,9 +2,10 @@ import { CONTINENTS } from "../../data/continents";
 import { COUNTRIES } from "../../data/countries";
 import { TOTAL_ISRAEL_CITIES } from "../../data/israelCities";
 import { TOTAL_SPACE_OBJECTS } from "../../data/planets";
+import { TOTAL_MARINE_CREATURES } from "../../data/marineLife";
 import { levelFor } from "../../lib/stickers";
 
-export type HomeTarget = "globe" | "map2d" | "israel" | "space" | "quiz" | "album";
+export type HomeTarget = "globe" | "map2d" | "israel" | "space" | "ocean" | "quiz" | "album" | "encyclopedia";
 
 interface HomeScreenProps {
   onSelect: (target: HomeTarget) => void;
@@ -14,6 +15,7 @@ interface HomeScreenProps {
     countries: number;
     israel: number;
     planets: number;
+    ocean: number;
   };
   stickersUnlocked: number;
   stickersTotal: number;
@@ -194,6 +196,15 @@ export default function HomeScreen({
           testId="home-space"
         />
         <Tile
+          emoji="🐠"
+          label="עולם האוקיינוס"
+          sub={`${discoveredPerMode.ocean} מתוך ${TOTAL_MARINE_CREATURES} חיות ים`}
+          gradient="linear-gradient(135deg,#06b6d4,#0e7490)"
+          shadow="0 8px 24px rgba(6,182,212,0.45)"
+          onClick={() => onSelect("ocean")}
+          testId="home-ocean"
+        />
+        <Tile
           emoji="❓"
           label="חידון"
           sub="איפה זה על המפה?"
@@ -201,6 +212,15 @@ export default function HomeScreen({
           shadow="0 8px 24px rgba(225,29,72,0.4)"
           onClick={() => onSelect("quiz")}
           testId="home-quiz"
+        />
+        <Tile
+          emoji="📖"
+          label="האנציקלופדיה"
+          sub="כל מה שגיליתם"
+          gradient="linear-gradient(135deg,#0d9488,#0f766e)"
+          shadow="0 8px 24px rgba(13,148,136,0.45)"
+          onClick={() => onSelect("encyclopedia")}
+          testId="home-encyclopedia"
         />
         <Tile
           big

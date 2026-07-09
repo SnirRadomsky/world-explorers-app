@@ -8,6 +8,7 @@ import SolarSystemView from "./components/Space/SolarSystemView";
 import OceanDiveView from "./components/Ocean/OceanDiveView";
 import QuizView from "./components/Quiz/QuizView";
 import StickerAlbum from "./components/Album/StickerAlbum";
+import Encyclopedia from "./components/Explorer/Encyclopedia";
 import StickerCelebration from "./components/Album/StickerCelebration";
 import ParentalGate from "./components/UI/ParentalGate";
 import DiscoveryCounter from "./components/UI/DiscoveryCounter";
@@ -24,7 +25,7 @@ import { TOTAL_MARINE_CREATURES } from "./data/marineLife";
 import type { OceanId } from "./data/oceans";
 import { STICKERS } from "./lib/stickers";
 
-type Screen = "home" | "globe" | "map2d" | "israel" | "space" | "ocean" | "quiz" | "album";
+type Screen = "home" | "globe" | "map2d" | "israel" | "space" | "ocean" | "quiz" | "album" | "encyclopedia";
 type WorldMode = "continents" | "countries";
 
 const SCREEN_LABELS: Record<Screen, string> = {
@@ -36,6 +37,7 @@ const SCREEN_LABELS: Record<Screen, string> = {
   ocean: "עולם האוקיינוס",
   quiz: "חידון",
   album: "אלבום מדבקות",
+  encyclopedia: "האנציקלופדיה",
 };
 
 const topBtn: React.CSSProperties = {
@@ -169,6 +171,7 @@ export default function App() {
             countries: countriesDiscovery.totalDiscovered,
             israel: israelDiscovery.totalDiscovered,
             planets: planetsDiscovery.totalDiscovered,
+            ocean: oceanDiscovery.totalDiscovered,
           }}
           stickersUnlocked={stickers.unlocked.size}
           stickersTotal={STICKERS.length}
@@ -340,6 +343,20 @@ export default function App() {
 
       {screen === "album" && (
         <StickerAlbum unlocked={stickers.unlocked} speakHebrew={speakHebrew} playSfx={play} />
+      )}
+
+      {screen === "encyclopedia" && (
+        <Encyclopedia
+          discovered={{
+            continents: continentsDiscovery.discovered,
+            countries: countriesDiscovery.discovered,
+            planets: planetsDiscovery.discovered,
+            constellations: constellationsDiscovery.discovered,
+            ocean: oceanDiscovery.discovered,
+          }}
+          speakHebrew={speakHebrew}
+          playSfx={play}
+        />
       )}
 
       {/* Overlays */}
