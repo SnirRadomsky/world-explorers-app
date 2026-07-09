@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useMemo, useState } from "react";
 import HomeScreen, { type HomeTarget } from "./components/UI/HomeScreen";
+import LaunchOverlay, { type Flight } from "./components/Space/LaunchOverlay";
 import GlobeView from "./components/Globe/GlobeView";
 import Map2DView from "./components/WorldMap/Map2DView";
 import IsraelMap from "./components/WorldMap/IsraelMap";
@@ -53,7 +53,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [worldMode, setWorldMode] = useState<WorldMode>("continents");
   const [gateOpen, setGateOpen] = useState(false);
-  const [rocketFlight, setRocketFlight] = useState(false);
+  const [flight, setFlight] = useState<Flight | null>(null);
 
   const { isMuted, toggleMute, speakHebrew, speakLang } = useAudio();
   const { play } = useSfx(isMuted);
@@ -88,13 +88,9 @@ export default function App() {
 
   const activeWorldDiscovery = worldMode === "continents" ? continentsDiscovery : countriesDiscovery;
 
-  // Fly a rocket between Earth screens and space 🚀
-  const flightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Fly a rocket between Earth screens and space 🚀 (cinematic sequence)
   const goWithRocket = useCallback((to: Screen) => {
-    setRocketFlight(true);
-    if (flightTimer.current) clearTimeout(flightTimer.current);
-    setTimeout(() => setScreen(to), 450);
-    flightTimer.current = setTimeout(() => setRocketFlight(false), 1000);
+    setFlight((cur) => cur ?? { to, dir: to === "space" ? "up" : "down" });
   }, []);
 
   const handleHomeSelect = useCallback(
@@ -159,7 +155,12 @@ export default function App() {
           speakHebrew={speakHebrew}
           playSfx={play}
         />
-        <RocketOverlay active={rocketFlight} />
+        <LaunchOverlay
+          flight={flight}
+          onArrive={(to) => setScreen(to as Screen)}
+          onDone={() => setFlight(null)}
+          speakHebrew={speakHebrew}
+        />
       </div>
     );
   }
@@ -302,37 +303,12 @@ export default function App() {
         speakHebrew={speakHebrew}
         playSfx={play}
       />
-      <RocketOverlay active={rocketFlight} />
+      <LaunchOverlay
+        flight={flight}
+        onArrive={(to) => setScreen(to as Screen)}
+        onDone={() => setFlight(null)}
+        speakHebrew={speakHebrew}
+      />
     </div>
-  );
-}
-
-/** Full-screen rocket transition between Earth and space. */
-function RocketOverlay({ active }: { active: boolean }) {
-  return (
-    <AnimatePresence>
-      {active && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 1, 1, 0] }}
-          transition={{ duration: 1.0, times: [0, 0.35, 0.65, 1] }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-40 flex items-center justify-center"
-          style={{
-            background: "radial-gradient(ellipse at 50% 80%, #1e2a5e 0%, #0a0f2b 55%, #04060f 100%)",
-            pointerEvents: "none",
-          }}
-        >
-          <motion.div
-            initial={{ y: 220, scale: 0.8, rotate: 0 }}
-            animate={{ y: -280, scale: 1.25 }}
-            transition={{ duration: 1.0, ease: "easeIn" }}
-            style={{ fontSize: 84, filter: "drop-shadow(0 12px 24px rgba(255,160,60,0.6))" }}
-          >
-            🚀
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
   );
 }
