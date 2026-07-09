@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SolarSystemScene, type SpacePick } from "../../three/SolarSystemScene";
+import { loadWorldTopo } from "../../three/loadWorldTopo";
+import { makeEarthTexture } from "../../three/earthPainter";
 import { PLANET_BY_ID, TOTAL_SPACE_OBJECTS } from "../../data/planets";
 import type { DiscoveryState } from "../../hooks/useDiscovery";
 import type { SfxName } from "../../hooks/useSfx";
@@ -86,21 +88,33 @@ export default function SolarSystemView({
 
   useEffect(() => {
     if (!containerRef.current) return;
+    let cancelled = false;
     let scene: SolarSystemScene | null = null;
-    try {
-      scene = new SolarSystemScene(containerRef.current, {
-        discovered: stateRef.current.planetsDiscovery.discovered,
-        reducedMotion:
-          typeof window.matchMedia === "function" &&
-          window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-        onPick: handlePick,
+
+    // Real Earth continents from the bundled TopoJSON; if geo data fails,
+    // the procedural FBM fallback inside makePlanetTexture kicks in.
+    loadWorldTopo()
+      .then((topo) => makeEarthTexture(topo))
+      .catch(() => undefined)
+      .then((earthTexture) => {
+        if (cancelled || !containerRef.current) return;
+        try {
+          scene = new SolarSystemScene(containerRef.current, {
+            discovered: stateRef.current.planetsDiscovery.discovered,
+            reducedMotion:
+              typeof window.matchMedia === "function" &&
+              window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+            onPick: handlePick,
+            earthTexture,
+          });
+          engineRef.current = scene;
+        } catch {
+          setWebglFailed(true);
+        }
       });
-      engineRef.current = scene;
-    } catch {
-      // Deferred so the effect body itself doesn't set state synchronously.
-      setTimeout(() => setWebglFailed(true), 0);
-    }
+
     return () => {
+      cancelled = true;
       engineRef.current = null;
       scene?.dispose();
     };

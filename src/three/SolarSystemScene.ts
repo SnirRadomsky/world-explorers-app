@@ -9,6 +9,7 @@ import {
   makeGlowTexture,
   makePlanetTexture,
   makeRingTexture,
+  makeCloudTexture,
   makeTextSprite,
   makeAtmosphere,
   mulberry32,
@@ -49,6 +50,7 @@ export class SolarSystemScene {
 
   private bodies: BodyEntry[] = [];
   private sunGlow!: THREE.Sprite;
+  private earthClouds: THREE.Mesh | null = null;
 
   private onPick: (pick: SpacePick | null) => void;
   private reducedMotion: boolean;
@@ -82,6 +84,9 @@ export class SolarSystemScene {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight);
+    // Filmic tone mapping = rich, photo-like planet colors
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.25;
     container.appendChild(this.renderer.domElement);
     this.renderer.domElement.style.touchAction = "none";
     this.renderer.domElement.style.display = "block";
@@ -102,10 +107,11 @@ export class SolarSystemScene {
     this.addMilkyWay();
 
     // Lights: sun at origin + soft ambient so far planets stay visible
-    const sunLight = new THREE.PointLight(0xfff2cc, 2600, 0, 1.6);
+    const sunLight = new THREE.PointLight(0xfff2cc, 3400, 0, 1.6);
     sunLight.position.set(0, 0, 0);
     this.scene.add(sunLight);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+    // lower ambient → real lit/dark planet sides, without losing far planets
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
 
     this.buildBodies(opts.earthTexture);
 
@@ -211,6 +217,20 @@ export class SolarSystemScene {
         const atm = makeAtmosphere(spec.radius * 1.35, 0x5aa7ff, 0.8);
         atm.position.copy(mesh.position);
         group.add(atm);
+        // drifting cloud layer above the continents
+        const clouds = new THREE.Mesh(
+          new THREE.SphereGeometry(spec.radius * 1.035, 48, 48),
+          new THREE.MeshStandardMaterial({
+            map: makeCloudTexture(8),
+            transparent: true,
+            depthWrite: false,
+            roughness: 1,
+            metalness: 0,
+          })
+        );
+        clouds.position.copy(mesh.position);
+        group.add(clouds);
+        this.earthClouds = clouds;
         earthGroup = group;
       }
 
@@ -414,6 +434,9 @@ export class SolarSystemScene {
       b.mesh.rotation.y += dt * 0.25 * speedScale;
       // keep labels facing up in world space (sprites auto-face camera)
     }
+
+    // Clouds drift a bit faster than the ground below them
+    if (this.earthClouds) this.earthClouds.rotation.y += dt * 0.4 * speedScale;
 
     // Sun glow breathing
     if (this.sunGlow) {

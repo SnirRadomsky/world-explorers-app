@@ -3,6 +3,7 @@
 
 import * as THREE from "three";
 import type { PlanetSpec } from "../data/planets";
+import { fbm2D } from "./noise";
 
 /** Deterministic PRNG so textures look identical on every launch. */
 export function mulberry32(seed: number): () => number {
@@ -143,6 +144,86 @@ export function makeTextSprite(text: string, opts?: { fontSize?: number; color?:
   return sprite;
 }
 
+// ─── FBM noise painting helpers ──────────────────────────────────────────────
+
+/**
+ * Paint a small grayscale FBM field and stretch it over the target context
+ * with the given blend mode — cheap "surface richness" for any planet.
+ * The noise wraps horizontally so the sphere seam is invisible.
+ */
+export function overlayNoise(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  seed: number,
+  alpha = 0.22,
+  scale = 5,
+  mode: GlobalCompositeOperation = "overlay",
+) {
+  const nw = 192;
+  const nh = 96;
+  const [noiseCanvas, nctx] = makeCanvas(nw, nh);
+  const img = nctx.createImageData(nw, nh);
+  for (let y = 0; y < nh; y++) {
+    for (let x = 0; x < nw; x++) {
+      // sample on a cylinder so the left/right edges match (no seam)
+      const ang = (x / nw) * Math.PI * 2;
+      const nx = Math.cos(ang) * scale;
+      const nz = Math.sin(ang) * scale;
+      const ny = (y / nh) * scale * 2;
+      const v =
+        fbm2D(nx + 31.7, ny, seed, 4) * 0.5 + fbm2D(nz + 77.3, ny, seed + 5, 4) * 0.5;
+      const g = Math.floor(v * 255);
+      const i = (y * nw + x) * 4;
+      img.data[i] = g;
+      img.data[i + 1] = g;
+      img.data[i + 2] = g;
+      img.data[i + 3] = 255;
+    }
+  }
+  nctx.putImageData(img, 0, 0);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.globalCompositeOperation = mode;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(noiseCanvas, 0, 0, w, h);
+  ctx.restore();
+}
+
+/** Transparent cloud layer texture: white puffs from thresholded FBM. */
+export function makeCloudTexture(seed = 8): THREE.CanvasTexture {
+  const w = 512;
+  const h = 256;
+  const nw = 256;
+  const nh = 128;
+  const [small, sctx] = makeCanvas(nw, nh);
+  const img = sctx.createImageData(nw, nh);
+  for (let y = 0; y < nh; y++) {
+    for (let x = 0; x < nw; x++) {
+      const ang = (x / nw) * Math.PI * 2;
+      const nx = Math.cos(ang) * 3.4;
+      const nz = Math.sin(ang) * 3.4;
+      const ny = (y / nh) * 6.4;
+      const v = fbm2D(nx + 11, ny, seed, 5) * 0.55 + fbm2D(nz + 53, ny + 9, seed + 3, 5) * 0.45;
+      // clouds where the field is dense; soft edges; thinner near poles
+      const polar = Math.sin((y / nh) * Math.PI);
+      const a = Math.max(0, (v - 0.52) * 3.4) * (0.35 + 0.65 * polar);
+      const i = (y * nw + x) * 4;
+      img.data[i] = 255;
+      img.data[i + 1] = 255;
+      img.data[i + 2] = 255;
+      img.data[i + 3] = Math.min(235, Math.floor(a * 255));
+    }
+  }
+  sctx.putImageData(img, 0, 0);
+  const [canvas, ctx] = makeCanvas(w, h);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(small, 0, 0, w, h);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 // ─── Planet surface painters ─────────────────────────────────────────────────
 
 function shade(hex: string, amt: number): string {
@@ -187,10 +268,11 @@ function paintBlotches(ctx: CanvasRenderingContext2D, w: number, h: number, rng:
 
 /** Paint a planet texture per its visual spec. Returns a THREE texture. */
 export function makePlanetTexture(spec: PlanetSpec, seed = 5): THREE.CanvasTexture {
-  const w = 512;
-  const h = 256;
+  const w = 1024;
+  const h = 512;
   const [canvas, ctx] = makeCanvas(w, h);
   const rng = mulberry32(seed + spec.id.length * 31 + spec.id.charCodeAt(0));
+  const noiseSeed = seed * 7 + spec.id.charCodeAt(0) * 3 + spec.id.length;
 
   // Base
   ctx.fillStyle = spec.baseColor;
@@ -206,6 +288,9 @@ export function makePlanetTexture(spec: PlanetSpec, seed = 5): THREE.CanvasTextu
       ctx.fillRect(0, 0, w, h);
       paintBlotches(ctx, w, h, rng, shade(spec.accentColor, 0.08), 26, 0.3);
       paintBlotches(ctx, w, h, rng, shade(spec.baseColor, 0.18), 18, 0.35);
+      // granulation: boiling-surface cells
+      overlayNoise(ctx, w, h, noiseSeed, 0.4, 9, "overlay");
+      overlayNoise(ctx, w, h, noiseSeed + 4, 0.22, 17, "soft-light");
       break;
     }
     case "banded": {
@@ -225,16 +310,28 @@ export function makePlanetTexture(spec: PlanetSpec, seed = 5): THREE.CanvasTextu
         }
         ctx.globalAlpha = 1;
       }
+      // flowing turbulence along the bands
+      overlayNoise(ctx, w, h, noiseSeed, 0.3, 7, "overlay");
       if (spec.id === "jupiter") {
-        // The Great Red Spot
-        ctx.beginPath();
-        ctx.ellipse(w * 0.68, h * 0.62, w * 0.075, h * 0.085, 0, 0, Math.PI * 2);
-        ctx.fillStyle = "#c0392b";
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(w * 0.68, h * 0.62, w * 0.05, h * 0.055, 0, 0, Math.PI * 2);
-        ctx.fillStyle = "#e74c3c";
-        ctx.fill();
+        // The Great Red Spot — a storm with swirl rings
+        const sx = w * 0.68;
+        const sy = h * 0.62;
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(-0.12);
+        const swirls: [number, number, string][] = [
+          [w * 0.085, h * 0.1, "#a93226"],
+          [w * 0.068, h * 0.082, "#c0392b"],
+          [w * 0.05, h * 0.06, "#e74c3c"],
+          [w * 0.03, h * 0.036, "#ec7063"],
+        ];
+        for (const [rx, ry, color] of swirls) {
+          ctx.beginPath();
+          ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+        }
+        ctx.restore();
       }
       break;
     }
@@ -246,6 +343,9 @@ export function makePlanetTexture(spec: PlanetSpec, seed = 5): THREE.CanvasTextu
       ctx.fillRect(0, 0, w, h);
       paintBlotches(ctx, w, h, rng, shade(spec.baseColor, 0.14), 30, 0.4);
       paintBlotches(ctx, w, h, rng, shade(spec.accentColor, -0.05), 16, 0.25);
+      // thick swirling cloud decks
+      overlayNoise(ctx, w, h, noiseSeed, 0.35, 4, "overlay");
+      overlayNoise(ctx, w, h, noiseSeed + 9, 0.18, 11, "soft-light");
       break;
     }
     case "icy": {
@@ -262,20 +362,56 @@ export function makePlanetTexture(spec: PlanetSpec, seed = 5): THREE.CanvasTextu
         ctx.fillRect(0, y, w, 6 + rng() * 14);
       }
       ctx.globalAlpha = 1;
+      // methane haze wisps
+      overlayNoise(ctx, w, h, noiseSeed, 0.16, 3, "soft-light");
+      if (spec.id === "neptune") {
+        // The Great Dark Spot
+        ctx.beginPath();
+        ctx.ellipse(w * 0.38, h * 0.44, w * 0.06, h * 0.07, 0.15, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(20,40,110,0.55)";
+        ctx.fill();
+      }
       break;
     }
     case "rocky": {
       paintBlotches(ctx, w, h, rng, shade(spec.accentColor, 0), 24, 0.4);
       paintBlotches(ctx, w, h, rng, shade(spec.baseColor, 0.08), 20, 0.32);
       paintCraters(ctx, w, h, rng, spec.baseColor, 26);
+      overlayNoise(ctx, w, h, noiseSeed, 0.3, 8, "overlay");
       if (spec.id === "mars") {
+        // Valles Marineris — a giant canyon scar (FBM-displaced ridge line)
+        ctx.save();
+        ctx.strokeStyle = shade(spec.baseColor, -0.22);
+        ctx.lineWidth = h * 0.028;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        for (let x = w * 0.18; x <= w * 0.52; x += 8) {
+          const t = x / w;
+          const y = h * 0.55 + (fbm2D(t * 9, 3.7, 61, 3) - 0.5) * h * 0.09;
+          if (x === w * 0.18) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.restore();
+        // Olympus Mons — the tallest volcano in the solar system
+        const vx = w * 0.72;
+        const vy = h * 0.4;
+        const vr = w * 0.045;
+        const vg = ctx.createRadialGradient(vx, vy, 0, vx, vy, vr);
+        vg.addColorStop(0, shade(spec.baseColor, -0.16));
+        vg.addColorStop(0.35, shade(spec.baseColor, 0.1));
+        vg.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = vg;
+        ctx.beginPath();
+        ctx.arc(vx, vy, vr, 0, Math.PI * 2);
+        ctx.fill();
         // polar caps
         ctx.fillStyle = "rgba(255,255,255,0.85)";
         ctx.beginPath();
-        ctx.ellipse(w / 2, 4, w * 0.32, 14, 0, 0, Math.PI * 2);
+        ctx.ellipse(w / 2, 6, w * 0.32, h * 0.05, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
-        ctx.ellipse(w / 2, h - 4, w * 0.28, 12, 0, 0, Math.PI * 2);
+        ctx.ellipse(w / 2, h - 6, w * 0.28, h * 0.045, 0, 0, Math.PI * 2);
         ctx.fill();
       }
       break;
@@ -283,6 +419,7 @@ export function makePlanetTexture(spec: PlanetSpec, seed = 5): THREE.CanvasTextu
     case "moon": {
       paintBlotches(ctx, w, h, rng, shade(spec.accentColor, 0), 16, 0.3);
       paintCraters(ctx, w, h, rng, spec.baseColor, 34);
+      overlayNoise(ctx, w, h, noiseSeed, 0.26, 10, "overlay");
       if (spec.id === "pluto") {
         // Pluto's heart 💙
         ctx.save();
@@ -298,9 +435,42 @@ export function makePlanetTexture(spec: PlanetSpec, seed = 5): THREE.CanvasTextu
       }
       break;
     }
-    case "earth":
-      // The Earth texture is painted separately from real geo data.
+    case "earth": {
+      // Fallback only — the real Earth texture is painted from TopoJSON
+      // (three/earthPainter.ts). If geo data failed to load, paint FBM
+      // continents so Earth is never a plain blue ball.
+      const og = ctx.createLinearGradient(0, 0, 0, h);
+      og.addColorStop(0, "#a8d8f0");
+      og.addColorStop(0.5, "#1e6fb8");
+      og.addColorStop(1, "#a8d8f0");
+      ctx.fillStyle = og;
+      ctx.fillRect(0, 0, w, h);
+      const nw = 256;
+      const nh = 128;
+      const [land, lctx] = makeCanvas(nw, nh);
+      const img = lctx.createImageData(nw, nh);
+      for (let y = 0; y < nh; y++) {
+        for (let x = 0; x < nw; x++) {
+          const ang = (x / nw) * Math.PI * 2;
+          const v = fbm2D(Math.cos(ang) * 3 + 9, (y / nh) * 6, 17, 5) * 0.5 +
+                    fbm2D(Math.sin(ang) * 3 + 41, (y / nh) * 6 + 2, 23, 5) * 0.5;
+          const i = (y * nw + x) * 4;
+          if (v > 0.52) {
+            img.data[i] = 63; img.data[i + 1] = 160; img.data[i + 2] = 96; img.data[i + 3] = 255;
+          } else {
+            img.data[i + 3] = 0;
+          }
+        }
+      }
+      lctx.putImageData(img, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(land, 0, 0, w, h);
+      // polar ice
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.fillRect(0, 0, w, h * 0.045);
+      ctx.fillRect(0, h * 0.955, w, h * 0.045);
       break;
+    }
   }
 
   const tex = new THREE.CanvasTexture(canvas);
@@ -309,18 +479,20 @@ export function makePlanetTexture(spec: PlanetSpec, seed = 5): THREE.CanvasTextu
   return tex;
 }
 
-/** Saturn's rings — translucent banded annulus texture. */
+/** Saturn's rings — translucent banded annulus with a real Cassini gap. */
 export function makeRingTexture(): THREE.CanvasTexture {
-  const size = 256;
+  const size = 512;
   const [canvas, ctx] = makeCanvas(size, 16);
   const bands: [number, number, string][] = [
-    [0.0, 0.14, "rgba(180,150,110,0.0)"],
-    [0.14, 0.32, "rgba(214,190,150,0.75)"],
-    [0.32, 0.38, "rgba(150,125,90,0.25)"],
-    [0.38, 0.62, "rgba(230,208,170,0.85)"],
-    [0.62, 0.68, "rgba(120,100,75,0.2)"],
-    [0.68, 0.88, "rgba(205,180,140,0.7)"],
-    [0.88, 1.0, "rgba(205,180,140,0.0)"],
+    [0.0, 0.1, "rgba(180,150,110,0.0)"],
+    [0.1, 0.2, "rgba(190,168,132,0.4)"],   // C ring (dim, inner)
+    [0.2, 0.24, "rgba(150,125,90,0.2)"],
+    [0.24, 0.52, "rgba(230,208,170,0.88)"], // B ring (bright)
+    [0.52, 0.58, "rgba(90,75,55,0.06)"],    // Cassini division — the famous gap
+    [0.58, 0.8, "rgba(210,186,148,0.72)"],  // A ring
+    [0.8, 0.83, "rgba(140,118,88,0.15)"],   // Encke gap
+    [0.83, 0.92, "rgba(205,180,140,0.6)"],
+    [0.92, 1.0, "rgba(205,180,140,0.0)"],
   ];
   for (const [a, b, color] of bands) {
     ctx.fillStyle = color;
