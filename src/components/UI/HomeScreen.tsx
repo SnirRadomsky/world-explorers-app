@@ -3,12 +3,16 @@ import { COUNTRIES } from "../../data/countries";
 import { TOTAL_ISRAEL_CITIES } from "../../data/israelCities";
 import { TOTAL_SPACE_OBJECTS } from "../../data/planets";
 import { TOTAL_MARINE_CREATURES } from "../../data/marineLife";
+import { TOTAL_LANDMARKS } from "../../data/landmarks";
 import { levelFor } from "../../lib/stickers";
 
-export type HomeTarget = "globe" | "map2d" | "israel" | "space" | "ocean" | "quiz" | "album" | "encyclopedia";
+export type HomeTarget =
+  | "globe" | "map2d" | "israel" | "space" | "ocean" | "landmarks"
+  | "learn" | "quiz" | "album" | "encyclopedia";
 
 interface HomeScreenProps {
   onSelect: (target: HomeTarget) => void;
+  onParents: () => void;
   totalDiscovered: number;
   discoveredPerMode: {
     continents: number;
@@ -16,9 +20,31 @@ interface HomeScreenProps {
     israel: number;
     planets: number;
     ocean: number;
+    landmarks: number;
   };
   stickersUnlocked: number;
   stickersTotal: number;
+}
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        gridColumn: "span 2",
+        fontFamily: "Heebo, sans-serif",
+        fontWeight: 900,
+        fontSize: 15,
+        color: "#1a365d",
+        padding: "6px 4px 0",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      {children}
+      <span style={{ flex: 1, height: 2, borderRadius: 2, background: "rgba(26,54,93,0.12)" }} />
+    </div>
+  );
 }
 
 const tile: React.CSSProperties = {
@@ -89,6 +115,7 @@ function Tile({
 
 export default function HomeScreen({
   onSelect,
+  onParents,
   totalDiscovered,
   discoveredPerMode,
   stickersUnlocked,
@@ -158,6 +185,7 @@ export default function HomeScreen({
           maxWidth: 460,
         }}
       >
+        <SectionHeader>🌍 מגלים את העולם</SectionHeader>
         <Tile
           big
           emoji="🌍"
@@ -205,9 +233,28 @@ export default function HomeScreen({
           testId="home-ocean"
         />
         <Tile
+          emoji="🏛️"
+          label="פלאי העולם"
+          sub={`ביקרתם ב-${discoveredPerMode.landmarks} מתוך ${TOTAL_LANDMARKS} מקומות`}
+          gradient="linear-gradient(135deg,#f59e0b,#b45309)"
+          shadow="0 8px 24px rgba(245,158,11,0.45)"
+          onClick={() => onSelect("landmarks")}
+          testId="home-landmarks"
+        />
+        <SectionHeader>🎓 לומדים ומשחקים</SectionHeader>
+        <Tile
+          emoji="🎓"
+          label="בית הספר הקטן"
+          sub="חשבון · אותיות · קריאה"
+          gradient="linear-gradient(135deg,#16a34a,#166534)"
+          shadow="0 8px 24px rgba(22,163,74,0.45)"
+          onClick={() => onSelect("learn")}
+          testId="home-learn"
+        />
+        <Tile
           emoji="❓"
           label="חידון"
-          sub="איפה זה על המפה?"
+          sub="8 נושאים לבחירה!"
           gradient="linear-gradient(135deg,#e11d48,#be123c)"
           shadow="0 8px 24px rgba(225,29,72,0.4)"
           onClick={() => onSelect("quiz")}
@@ -233,6 +280,27 @@ export default function HomeScreen({
           testId="home-album"
         />
       </div>
+
+      {/* parents corner */}
+      <button
+        onClick={onParents}
+        data-testid="home-parents"
+        style={{
+          fontFamily: "Heebo, sans-serif",
+          border: "none",
+          borderRadius: 999,
+          background: "rgba(255,255,255,0.75)",
+          color: "#475569",
+          fontWeight: 800,
+          fontSize: 13,
+          padding: "8px 18px",
+          cursor: "pointer",
+          boxShadow: "0 3px 10px rgba(0,0,0,0.1)",
+          marginBottom: 8,
+        }}
+      >
+        👨‍👩‍👧 להורים: דו"ח התקדמות
+      </button>
     </div>
   );
 }

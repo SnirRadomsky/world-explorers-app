@@ -6,6 +6,8 @@ import { TOTAL_ISRAEL_CITIES } from "../data/israelCities";
 import { TOTAL_SPACE_OBJECTS } from "../data/planets";
 import { TOTAL_CONSTELLATIONS } from "../data/constellations";
 import { MARINE_LIFE, TOTAL_MARINE_CREATURES } from "../data/marineLife";
+import { TOTAL_LANDMARKS, TOTAL_TREASURES } from "../data/landmarks";
+import { TOTAL_LETTERS } from "../data/hebrewLetters";
 
 export interface StickerDef {
   id: string;
@@ -28,6 +30,14 @@ export interface ProgressSnapshot {
   visitedCount?: number;
   dailyStreak?: number;
   flagsGold?: boolean;
+  /** 4.0 additions — landmarks, treasures and the little school. */
+  landmarksVisited?: number;
+  treasuresFound?: number;
+  lettersKnown?: number;
+  wordsRead?: number;
+  mathStarsTotal?: number;
+  memoryWins?: number;
+  songsDone?: number;
 }
 
 const CONTINENT_STICKERS: StickerDef[] = [
@@ -57,6 +67,15 @@ export const STICKERS: StickerDef[] = [
   { id: "st-quiz",      emoji: "🥇", nameHebrew: "אלוף החידונים",  howHebrew: "השיגו 3 מדליות זהב בחידונים" },
   { id: "st-flags",     emoji: "🚩", nameHebrew: "מלך הדגלים",     howHebrew: "השיגו מדליית זהב בחידון הדגלים" },
   { id: "st-daily",     emoji: "🔥", nameHebrew: "נחושים",         howHebrew: "סיימו את אתגר היום 3 ימים ברצף" },
+  { id: "st-wonders",   emoji: "🏛️", nameHebrew: "תייר פלאים",     howHebrew: "בקרו ב-8 פלאי עולם" },
+  { id: "st-all-wonders", emoji: "🗿", nameHebrew: "מגלה כל הפלאים", howHebrew: "בקרו בכל 16 פלאי העולם" },
+  { id: "st-treasure",  emoji: "💎", nameHebrew: "צייד אוצרות",    howHebrew: "מצאו 20 אוצרות בפלאי העולם" },
+  { id: "st-all-treasures", emoji: "👑", nameHebrew: "אוצר לאומי", howHebrew: "מצאו את כל 48 האוצרות" },
+  { id: "st-letters",   emoji: "🔤", nameHebrew: "מכיר האותיות",   howHebrew: "הכירו את כל 22 האותיות" },
+  { id: "st-reader",    emoji: "📖", nameHebrew: "קורא צעיר",      howHebrew: "קראו נכון 12 מילים" },
+  { id: "st-math",      emoji: "➕", nameHebrew: "תלמיד מצטיין",   howHebrew: "אספו 6 כוכבים בחשבון בכיף" },
+  { id: "st-memory",    emoji: "🃏", nameHebrew: "אלוף הזיכרון",   howHebrew: "נצחו 3 פעמים במשחק הזיכרון" },
+  { id: "st-musician",  emoji: "🎵", nameHebrew: "מוזיקאי קטן",    howHebrew: "נגנו את כל 3 השירים בתיבת הנגינה" },
 ];
 
 export const STICKER_BY_ID = new Map(STICKERS.map((s) => [s.id, s]));
@@ -106,6 +125,18 @@ export function computeUnlockedStickers(p: ProgressSnapshot): Set<string> {
   if ((p.dailyStreak ?? 0) >= 3) unlocked.add("st-daily");
   if (p.languagesLearned >= 5) unlocked.add("st-linguist");
   if (p.goldMedals >= 3) unlocked.add("st-quiz");
+
+  // 4.0: world wonders + treasures
+  if ((p.landmarksVisited ?? 0) >= 8) unlocked.add("st-wonders");
+  if ((p.landmarksVisited ?? 0) >= TOTAL_LANDMARKS) unlocked.add("st-all-wonders");
+  if ((p.treasuresFound ?? 0) >= 20) unlocked.add("st-treasure");
+  if ((p.treasuresFound ?? 0) >= TOTAL_TREASURES) unlocked.add("st-all-treasures");
+  // 4.0: the little school
+  if ((p.lettersKnown ?? 0) >= TOTAL_LETTERS) unlocked.add("st-letters");
+  if ((p.wordsRead ?? 0) >= 12) unlocked.add("st-reader");
+  if ((p.mathStarsTotal ?? 0) >= 6) unlocked.add("st-math");
+  if ((p.memoryWins ?? 0) >= 3) unlocked.add("st-memory");
+  if ((p.songsDone ?? 0) >= 3) unlocked.add("st-musician");
 
   return unlocked;
 }

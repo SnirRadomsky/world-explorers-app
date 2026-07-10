@@ -8,6 +8,7 @@ import { CONTINENTS } from "../../data/continents";
 import { COUNTRIES, COUNTRY_BY_ID, getCountryColor } from "../../data/countries";
 import { SEASON_BY_ID, type SeasonId } from "../../data/seasons";
 import { OCEAN_BY_ID, type OceanId, type OceanSpec } from "../../data/oceans";
+import { LANDMARK_BY_ID, type LandmarkSpec } from "../../data/landmarks";
 import InfoSheet from "../Cards/InfoSheet";
 import type { DiscoveryState } from "../../hooks/useDiscovery";
 import type { SfxName } from "../../hooks/useSfx";
@@ -50,6 +51,8 @@ interface GlobeViewProps {
   onGoTo2D: () => void;
   onGoSpace: () => void;
   onDiveOcean: (ocean: OceanId) => void;
+  landmarksVisited: Set<string>;
+  onVisitLandmark: (landmarkId: string) => void;
 }
 
 export default function GlobeView(props: GlobeViewProps) {
@@ -75,11 +78,12 @@ export default function GlobeView(props: GlobeViewProps) {
   const [rocketHint, setRocketHint] = useState(false);
   const [activeBubble, setActiveBubble] = useState<{
     id: string;
-    kind: GlobeMode | "ocean";
+    kind: GlobeMode | "ocean" | "landmark";
     name: string;
     color: string;
   } | null>(null);
   const [oceanCardId, setOceanCardId] = useState<OceanId | null>(null);
+  const [landmarkCardId, setLandmarkCardId] = useState<string | null>(null);
   const [confettiTrigger, setConfettiTrigger] = useState(0);
   const [confettiOrigin, setConfettiOrigin] = useState({ x: 0.5, y: 0.5 });
   const [milestone, setMilestone] = useState<string | null>(null);
@@ -93,6 +97,11 @@ export default function GlobeView(props: GlobeViewProps) {
   useEffect(() => {
     stateRef.current = { mode, continentsDiscovery, countriesDiscovery, playSfx, speakHebrew };
   }, [mode, continentsDiscovery, countriesDiscovery, playSfx, speakHebrew]);
+  const landmarksVisitedRef = useRef(props.landmarksVisited);
+  useEffect(() => {
+    landmarksVisitedRef.current = props.landmarksVisited;
+    engineRef.current?.setLandmarksVisited(props.landmarksVisited);
+  }, [props.landmarksVisited]);
 
   const handlePick = useCallback((pick: GlobePick | null) => {
     const s = stateRef.current;
@@ -111,6 +120,18 @@ export default function GlobeView(props: GlobeViewProps) {
       setActiveBubble({ id: pick.id, kind: "ocean", name: `${ocean.emoji} ${ocean.nameHebrew}`, color: ocean.color });
       if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
       dismissTimerRef.current = setTimeout(() => setActiveBubble(null), 3400);
+      return;
+    }
+
+    if (pick.kind === "landmark") {
+      // a gold pin! open the wonder card
+      const landmark = LANDMARK_BY_ID.get(pick.id);
+      if (!landmark) return;
+      s.playSfx("chime");
+      s.speakHebrew(landmark.nameHebrew);
+      setActiveBubble({ id: pick.id, kind: "landmark", name: `${landmark.emoji} ${landmark.nameHebrew}`, color: "#d97706" });
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = setTimeout(() => setActiveBubble(null), 4200);
       return;
     }
 
@@ -178,6 +199,7 @@ export default function GlobeView(props: GlobeViewProps) {
             reducedMotion:
               typeof window.matchMedia === "function" &&
               window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+            landmarksVisited: landmarksVisitedRef.current,
             onPick: handlePick,
             onMaxZoomOut: handleMaxZoomOut,
           });
@@ -227,6 +249,7 @@ export default function GlobeView(props: GlobeViewProps) {
     if (!activeBubble) return;
     if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
     if (activeBubble.kind === "ocean") setOceanCardId(activeBubble.id as OceanId);
+    else if (activeBubble.kind === "landmark") setLandmarkCardId(activeBubble.id);
     else if (activeBubble.kind === "continents") setContinentCardId(activeBubble.id);
     else setCountryCardId(activeBubble.id);
     setActiveBubble(null);
@@ -464,7 +487,109 @@ export default function GlobeView(props: GlobeViewProps) {
           props.onDiveOcean(id);
         }}
       />
+
+      {/* Landmark card: fact + visit button */}
+      <InfoSheetLandmark
+        landmark={landmarkCardId ? LANDMARK_BY_ID.get(landmarkCardId) ?? null : null}
+        onClose={() => setLandmarkCardId(null)}
+        speakHebrew={props.speakHebrew}
+        playSfx={props.playSfx}
+        onVisit={(id) => {
+          setLandmarkCardId(null);
+          props.onVisitLandmark(id);
+        }}
+      />
     </div>
+  );
+}
+
+function InfoSheetLandmark({
+  landmark,
+  onClose,
+  speakHebrew,
+  playSfx,
+  onVisit,
+}: {
+  landmark: LandmarkSpec | null;
+  onClose: () => void;
+  speakHebrew: (t: string) => void;
+  playSfx: (n: SfxName) => void;
+  onVisit: (id: string) => void;
+}) {
+  return (
+    <InfoSheet open={!!landmark} onClose={onClose} accentColor="#d97706">
+      {landmark && (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <span style={{ fontSize: 50 }}>{landmark.emoji}</span>
+            <div>
+              <div
+                style={{ fontWeight: 900, fontSize: 26, color: "#0f172a", cursor: "pointer" }}
+                onClick={() => speakHebrew(landmark.nameHebrew)}
+              >
+                {landmark.nameHebrew} 🔊
+              </div>
+              <span
+                style={{
+                  display: "inline-block",
+                  background: "#fef3c7",
+                  color: "#92400e",
+                  borderRadius: 999,
+                  padding: "2px 12px",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  marginTop: 4,
+                }}
+              >
+                {landmark.flagEmoji} {landmark.countryHebrew}
+              </span>
+            </div>
+          </div>
+          <div
+            onClick={() => {
+              playSfx("pop");
+              speakHebrew(landmark.factHebrew);
+            }}
+            style={{
+              marginTop: 14,
+              background: "linear-gradient(135deg,#fef3c7,#fde68a)",
+              borderRadius: 16,
+              padding: "12px 16px",
+              fontWeight: 700,
+              fontSize: 17,
+              color: "#78350f",
+              cursor: "pointer",
+              lineHeight: 1.45,
+            }}
+          >
+            💡 {landmark.factHebrew} <span style={{ fontSize: 14 }}>🔊</span>
+          </div>
+          <button
+            data-testid="visit-landmark"
+            onClick={() => {
+              playSfx("whoosh");
+              onVisit(landmark.id);
+            }}
+            style={{
+              marginTop: 16,
+              width: "100%",
+              border: "none",
+              borderRadius: 18,
+              background: "linear-gradient(135deg,#f59e0b,#b45309)",
+              color: "white",
+              fontFamily: "Heebo, sans-serif",
+              fontWeight: 900,
+              fontSize: 19,
+              padding: "14px 20px",
+              cursor: "pointer",
+              boxShadow: "0 8px 24px rgba(245,158,11,0.4)",
+            }}
+          >
+            🚪 בואו נבקר במקום! 💎
+          </button>
+        </div>
+      )}
+    </InfoSheet>
   );
 }
 

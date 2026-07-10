@@ -9,7 +9,9 @@ type GameMode =
   | "planets"
   | "constellations"
   | "ocean"
-  | "visited";
+  | "visited"
+  | "landmarks"
+  | "treasures";
 
 const STORAGE_KEY_PREFIX = "world-explorers-discoveries";
 

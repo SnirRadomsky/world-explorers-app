@@ -11,12 +11,16 @@ import { PLANETS } from "../../data/planets";
 import { SPACE_OBJECTS } from "../../data/spaceObjects";
 import { CONSTELLATIONS } from "../../data/constellations";
 import { MARINE_LIFE } from "../../data/marineLife";
+import { LANDMARKS, ALL_TREASURES } from "../../data/landmarks";
+import { getCreatureSnapshot } from "../../three/creatureSnapshots";
 import type { SfxName } from "../../hooks/useSfx";
 
 interface Entry {
   id: string;
   emoji: string;
   name: string;
+  /** real rendered portrait (marine creatures) — shown when discovered */
+  photo?: boolean;
 }
 
 interface Section {
@@ -35,6 +39,8 @@ interface EncyclopediaProps {
     planets: Set<string>;
     constellations: Set<string>;
     ocean: Set<string>;
+    landmarks: Set<string>;
+    treasures: Set<string>;
   };
   speakHebrew: (text: string) => void;
   playSfx: (name: SfxName) => void;
@@ -91,7 +97,23 @@ export default function Encyclopedia({ discovered, speakHebrew, playSfx }: Encyc
         emoji: "🐠",
         color: "#0e7490",
         discovered: discovered.ocean,
-        entries: MARINE_LIFE.map((c) => ({ id: c.id, emoji: c.emoji, name: c.nameHebrew })),
+        entries: MARINE_LIFE.map((c) => ({ id: c.id, emoji: c.emoji, name: c.nameHebrew, photo: true })),
+      },
+      {
+        key: "landmarks",
+        title: "פלאי עולם",
+        emoji: "🏛️",
+        color: "#d97706",
+        discovered: discovered.landmarks,
+        entries: LANDMARKS.map((l) => ({ id: l.id, emoji: l.emoji, name: l.nameHebrew })),
+      },
+      {
+        key: "treasures",
+        title: "אוצרות",
+        emoji: "💎",
+        color: "#b45309",
+        discovered: discovered.treasures,
+        entries: ALL_TREASURES.map((t) => ({ id: t.id, emoji: t.emoji, name: t.nameHebrew })),
       },
     ];
   }, [discovered]);
@@ -190,9 +212,18 @@ export default function Encyclopedia({ discovered, speakHebrew, playSfx }: Encyc
                   opacity: found ? 1 : 0.75,
                 }}
               >
-                <span style={{ fontSize: 34, lineHeight: 1, filter: found ? "none" : "grayscale(1)" }}>
-                  {found ? e.emoji : "❓"}
-                </span>
+                {found && e.photo && getCreatureSnapshot(e.id) ? (
+                  <img
+                    src={getCreatureSnapshot(e.id)!}
+                    alt=""
+                    style={{ width: 46, height: 46, objectFit: "contain" }}
+                    draggable={false}
+                  />
+                ) : (
+                  <span style={{ fontSize: 34, lineHeight: 1, filter: found ? "none" : "grayscale(1)" }}>
+                    {found ? e.emoji : "❓"}
+                  </span>
+                )}
                 <span
                   style={{
                     fontWeight: 700,

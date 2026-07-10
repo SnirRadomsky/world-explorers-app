@@ -26,6 +26,8 @@ import { getCountryDetails, flagEmoji } from "../../data/countryDetails";
 import { ISRAEL_CITIES } from "../../data/israelCities";
 import { PLANETS } from "../../data/planets";
 import { MARINE_LIFE, CREATURE_BY_ID } from "../../data/marineLife";
+import { LANDMARKS, LANDMARK_BY_ID } from "../../data/landmarks";
+import { getCreatureSnapshot } from "../../three/creatureSnapshots";
 import type { SfxName } from "../../hooks/useSfx";
 import ConfettiEffect from "../Overlays/ConfettiEffect";
 import QuizWorldMap from "./QuizWorldMap";
@@ -43,6 +45,8 @@ const CATEGORIES: { id: QuizCategory; label: string; emoji: string; gradient: st
   { id: "planets", label: "כוכבי לכת", emoji: "🪐", gradient: "linear-gradient(135deg,#8b5cf6,#6d28d9)" },
   { id: "flags", label: "דגלים", emoji: "🚩", gradient: "linear-gradient(135deg,#ec4899,#be185d)" },
   { id: "marine", label: "חיות ים", emoji: "🐠", gradient: "linear-gradient(135deg,#06b6d4,#0e7490)" },
+  { id: "landmarks", label: "פלאי עולם", emoji: "🏛️", gradient: "linear-gradient(135deg,#f59e0b,#b45309)" },
+  { id: "capitals", label: "ערי בירה", emoji: "🏙️", gradient: "linear-gradient(135deg,#64748b,#334155)" },
 ];
 
 const FLAG_COUNTRIES = COUNTRIES.filter((c) => !!getCountryDetails(c.id));
@@ -54,14 +58,21 @@ const CATALOGS: Record<QuizCategory, QuizItem[]> = {
   planets: PLANETS.map((p) => ({ id: p.id, nameHebrew: p.nameHebrew })),
   flags: FLAG_COUNTRIES.map((c) => ({ id: c.id, nameHebrew: c.nameHebrew })),
   marine: MARINE_LIFE.map((c) => ({ id: c.id, nameHebrew: c.nameHebrew })),
+  landmarks: LANDMARKS.map((l) => ({ id: l.id, nameHebrew: l.nameHebrew })),
+  capitals: FLAG_COUNTRIES.map((c) => ({ id: c.id, nameHebrew: c.nameHebrew })),
 };
 
 const CATALOG_IDS: Record<QuizCategory, string[]> = Object.fromEntries(
   (Object.keys(CATALOGS) as QuizCategory[]).map((k) => [k, CATALOGS[k].map((i) => i.id)]),
 ) as Record<QuizCategory, string[]>;
 
-const CHOICE_CATEGORIES: QuizCategory[] = ["flags", "marine"];
-const CHOICE_ACCENT: Record<string, string> = { flags: "#ec4899", marine: "#06b6d4" };
+const CHOICE_CATEGORIES: QuizCategory[] = ["flags", "marine", "landmarks", "capitals"];
+const CHOICE_ACCENT: Record<string, string> = {
+  flags: "#ec4899",
+  marine: "#06b6d4",
+  landmarks: "#f59e0b",
+  capitals: "#64748b",
+};
 
 function isChoice(cat: QuizCategory): boolean {
   return CHOICE_CATEGORIES.includes(cat);
@@ -70,6 +81,8 @@ function isChoice(cat: QuizCategory): boolean {
 function questionText(cat: QuizCategory, name: string): string {
   if (cat === "flags") return `מצאו את הדגל של ${name}`;
   if (cat === "marine") return `מצאו את ${name}`;
+  if (cat === "landmarks") return `באיזו מדינה נמצא ${name}?`;
+  if (cat === "capitals") return `מה עיר הבירה של ${name}?`;
   return `איפה ${name}?`;
 }
 
@@ -78,8 +91,17 @@ function toChoiceOption(cat: QuizCategory, id: string): ChoiceOption {
     const d = getCountryDetails(id);
     return { id, emoji: d ? flagEmoji(d.alpha2) : "🏳️" };
   }
+  if (cat === "landmarks") {
+    const l = LANDMARK_BY_ID.get(id);
+    return { id, emoji: l?.flagEmoji ?? "🏳️", label: l?.countryHebrew };
+  }
+  if (cat === "capitals") {
+    const d = getCountryDetails(id);
+    return { id, label: d?.capitalHebrew ?? "?" };
+  }
+  // marine: show the creature's real rendered portrait; emoji only as fallback
   const c = CREATURE_BY_ID.get(id);
-  return { id, emoji: c?.emoji ?? "🐟" };
+  return { id, imageUrl: getCreatureSnapshot(id) ?? undefined, emoji: c?.emoji ?? "🐟" };
 }
 
 interface QuizViewProps {
@@ -360,7 +382,7 @@ export default function QuizView({
           >
             🔊
           </button>
-          <div data-testid="quiz-question" style={{ fontWeight: 900, fontSize: "clamp(18px,4.2vw,28px)", color: "#0f172a", whiteSpace: "nowrap" }}>
+          <div data-testid="quiz-question" style={{ fontWeight: 900, fontSize: "clamp(17px,4vw,26px)", color: "#0f172a", textAlign: "center", lineHeight: 1.25 }}>
             {isDaily && <span style={{ color: "#ea580c" }}>🔥 </span>}
             {questionText(category, question.target.nameHebrew)}
           </div>

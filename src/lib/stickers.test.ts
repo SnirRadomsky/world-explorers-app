@@ -21,6 +21,52 @@ describe("computeUnlockedStickers", () => {
     expect(computeUnlockedStickers(empty()).size).toBe(0);
   });
 
+  it("4.0: landmark + treasure stickers", () => {
+    const p = empty();
+    p.landmarksVisited = 8;
+    p.treasuresFound = 20;
+    let u = computeUnlockedStickers(p);
+    expect(u.has("st-wonders")).toBe(true);
+    expect(u.has("st-all-wonders")).toBe(false);
+    expect(u.has("st-treasure")).toBe(true);
+    expect(u.has("st-all-treasures")).toBe(false);
+    p.landmarksVisited = 16;
+    p.treasuresFound = 48;
+    u = computeUnlockedStickers(p);
+    expect(u.has("st-all-wonders")).toBe(true);
+    expect(u.has("st-all-treasures")).toBe(true);
+  });
+
+  it("4.0: little-school stickers", () => {
+    const p = empty();
+    p.lettersKnown = 22;
+    p.wordsRead = 12;
+    p.mathStarsTotal = 6;
+    p.memoryWins = 3;
+    p.songsDone = 3;
+    const u = computeUnlockedStickers(p);
+    expect(u.has("st-letters")).toBe(true);
+    expect(u.has("st-reader")).toBe(true);
+    expect(u.has("st-math")).toBe(true);
+    expect(u.has("st-memory")).toBe(true);
+    expect(u.has("st-musician")).toBe(true);
+  });
+
+  it("4.0: thresholds are not unlocked early", () => {
+    const p = empty();
+    p.lettersKnown = 21;
+    p.wordsRead = 11;
+    p.mathStarsTotal = 5;
+    p.memoryWins = 2;
+    p.songsDone = 2;
+    p.landmarksVisited = 7;
+    p.treasuresFound = 19;
+    const u = computeUnlockedStickers(p);
+    for (const id of ["st-letters", "st-reader", "st-math", "st-memory", "st-musician", "st-wonders", "st-treasure"]) {
+      expect(u.has(id), id).toBe(false);
+    }
+  });
+
   it("total-count stickers", () => {
     const p = empty();
     p.israelDiscovered = 10;

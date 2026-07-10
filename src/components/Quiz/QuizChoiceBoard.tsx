@@ -1,10 +1,13 @@
-// A multiple-choice board for the flags & marine quiz categories: renders
-// 2×2 option cards (big emoji + optional label). The correct option pulses
-// when the engine asks for a hint. Reuses the same onTap contract as the maps.
+// A multiple-choice board for the choice quiz categories: renders 2×2 option
+// cards — a real rendered picture (imageUrl), a big emoji, or a large text
+// label (capitals). The correct option pulses when the engine asks for a
+// hint. Reuses the same onTap contract as the maps.
 
 export interface ChoiceOption {
   id: string;
-  emoji: string;
+  emoji?: string;
+  /** a real picture (e.g. the creature's rendered 3D portrait) — beats emoji */
+  imageUrl?: string;
   label?: string;
 }
 
@@ -81,9 +84,33 @@ export default function QuizChoiceBoard({
                 minHeight: 108,
               }}
             >
-              <span style={{ fontSize: "clamp(40px, 11vw, 62px)", lineHeight: 1 }}>{opt.emoji}</span>
+              {opt.imageUrl ? (
+                <img
+                  src={opt.imageUrl}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    width: "clamp(76px, 24vw, 118px)",
+                    height: "clamp(76px, 24vw, 118px)",
+                    objectFit: "contain",
+                    pointerEvents: "none",
+                  }}
+                />
+              ) : opt.emoji ? (
+                <span style={{ fontSize: "clamp(40px, 11vw, 62px)", lineHeight: 1 }}>{opt.emoji}</span>
+              ) : null}
               {opt.label && (
-                <span style={{ fontWeight: 800, fontSize: 16, color: "#0f172a" }}>{opt.label}</span>
+                <span
+                  style={{
+                    fontWeight: 900,
+                    fontSize: opt.emoji || opt.imageUrl ? 16 : "clamp(19px, 5vw, 24px)",
+                    color: "#0f172a",
+                    padding: opt.emoji || opt.imageUrl ? 0 : "16px 4px",
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {opt.label}
+                </span>
               )}
             </button>
           );

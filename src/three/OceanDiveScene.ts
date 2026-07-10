@@ -5,7 +5,7 @@
 import * as THREE from "three";
 import type { OceanSpec, OceanZoneId } from "../data/oceans";
 import { creaturesFor, type MarineCreature } from "../data/marineLife";
-import { buildCreature } from "./lowPolyLife";
+import { buildCreature, collectRig } from "./lowPolyLife";
 import { makeTextSprite, mulberry32 } from "./proceduralTextures";
 
 export interface OceanPick {
@@ -25,6 +25,7 @@ export interface OceanDiveOptions {
 interface Swimmer {
   spec: MarineCreature;
   group: THREE.Group;
+  rig: Record<string, THREE.Object3D>;
   label: THREE.Sprite;
   mystery: THREE.Sprite;
   center: THREE.Vector3;
@@ -36,6 +37,9 @@ interface Swimmer {
   bobPhase: number;
   floorDweller: boolean;
 }
+
+/** Creatures that sit/peek on the sea floor instead of cruising loops. */
+const FLOOR_STYLES = new Set(["crab", "starfish", "eel", "lobster", "blobfish"]);
 
 const CAM_MIN = 7;
 const CAM_MAX = 22;
@@ -51,6 +55,7 @@ export class OceanDiveScene {
   private rays: THREE.Mesh[] = [];
   private particles: THREE.Points | null = null;
   private bubbles: THREE.Mesh[] = [];
+  private seaweeds: THREE.Group[] = [];
 
   private onPick: (pick: OceanPick | null) => void;
   private reducedMotion: boolean;
@@ -58,7 +63,7 @@ export class OceanDiveScene {
 
   private camYaw = 0;
   private camPitch = -0.05;
-  private camDist = 13;
+  private camDist = 16;
 
   private pointers = new Map<number, { x: number; y: number }>();
   private pinchStartDist = 0;
@@ -88,7 +93,7 @@ export class OceanDiveScene {
     const water = new THREE.Color(opts.ocean.waterColors[opts.zone]);
     this.scene = new THREE.Scene();
     this.scene.background = water;
-    const fogDensity = opts.zone === "reef" ? 0.024 : opts.zone === "open" ? 0.03 : 0.052;
+    const fogDensity = opts.zone === "reef" ? 0.022 : opts.zone === "open" ? 0.027 : 0.04;
     this.scene.fog = new THREE.FogExp2(water, fogDensity);
 
     this.camera = new THREE.PerspectiveCamera(
@@ -110,10 +115,15 @@ export class OceanDiveScene {
       sun.position.set(2, 18, 4);
       this.scene.add(sun);
     } else {
-      this.scene.add(new THREE.AmbientLight(0x5b7db8, 0.28));
-      const dim = new THREE.DirectionalLight(0x33507a, 0.18);
+      // dark but readable: cool ambient + faint top light + blue rim fill so
+      // big creatures read as shapes, not black blobs
+      this.scene.add(new THREE.AmbientLight(0x8aa8dd, 0.72));
+      const dim = new THREE.DirectionalLight(0x4a6a9e, 0.4);
       dim.position.set(0, 10, 4);
       this.scene.add(dim);
+      const rim = new THREE.DirectionalLight(0x2e4a7a, 0.3);
+      rim.position.set(-6, -4, -8);
+      this.scene.add(rim);
     }
 
     this.buildEnvironment(opts);
@@ -209,6 +219,25 @@ export class OceanDiveScene {
       this.scene.add(floor);
 
       if (opts.zone === "reef") {
+        // swaying seaweed strands (pivot at the base)
+        for (let i = 0; i < 10; i++) {
+          const strand = new THREE.Group();
+          const h = 1.6 + rng() * 1.8;
+          const green = new THREE.MeshStandardMaterial({
+            color: i % 3 === 0 ? "#2f9e44" : "#3aa86b",
+            roughness: 0.9,
+            side: THREE.DoubleSide,
+          });
+          for (let j = 0; j < 3; j++) {
+            const blade = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, h * (0.7 + rng() * 0.5), 3, 5), green);
+            blade.position.set((rng() - 0.5) * 0.4, h / 2, (rng() - 0.5) * 0.4);
+            blade.rotation.z = (rng() - 0.5) * 0.4;
+            strand.add(blade);
+          }
+          strand.position.set((rng() - 0.5) * 32, -7, (rng() - 0.5) * 32);
+          this.scene.add(strand);
+          this.seaweeds.push(strand);
+        }
         // coral garden
         const corals = ["#ff6f61", "#f59e0b", "#e879f9", "#34d399", "#f43f5e", "#38bdf8"];
         for (let i = 0; i < 22; i++) {
@@ -274,13 +303,15 @@ export class OceanDiveScene {
 
     list.forEach((spec, i) => {
       const group = buildCreature(spec);
-      const floorDweller = spec.speed === 0 || spec.style === "crab" || spec.style === "starfish";
+      const floorDweller = spec.speed === 0 || FLOOR_STYLES.has(spec.style);
+      const surface = spec.style === "otter"; // floats on its back near the light
 
       const a = (i / list.length) * Math.PI * 2 + rng() * 0.5;
-      const dist = 5 + rng() * 7;
+      // giants circle farther out so they don't blot out the camera
+      const dist = 5 + rng() * 5 + Math.max(0, spec.size - 1.8) * 2.2;
       const center = new THREE.Vector3(
         Math.cos(a) * dist,
-        floorDweller ? -6.6 : -3 + rng() * 7,
+        floorDweller ? -6.6 : surface ? 3.6 + rng() * 1.2 : -3 + rng() * 6.5,
         Math.sin(a) * dist
       );
 
@@ -296,10 +327,11 @@ export class OceanDiveScene {
       this.swimmers.push({
         spec,
         group,
+        rig: collectRig(group),
         label,
         mystery,
         center,
-        radius: floorDweller ? 0.6 + rng() * 0.8 : 2 + rng() * 4,
+        radius: floorDweller ? 0.6 + rng() * 0.8 : 1.8 + rng() * 3.2,
         angSpeed: (0.1 + rng() * 0.14) * spec.speed * (rng() > 0.5 ? 1 : -1),
         angle: rng() * Math.PI * 2,
         bobAmp: floorDweller ? 0 : 0.3 + rng() * 0.5,
@@ -308,6 +340,58 @@ export class OceanDiveScene {
         floorDweller,
       });
     });
+  }
+
+  /** Drive the named animation rig: tails wag, fins flap, arms sway. */
+  private animateRig(s: Swimmer, t: number) {
+    const r = s.rig;
+    const ph = s.bobPhase;
+    const swimF = 2.2 + s.spec.speed * 2.4; // faster swimmers beat faster
+    const wave = Math.sin(t * swimF + ph);
+    if (r.tail) r.tail.rotation.y = wave * 0.42;
+    if (r.flukes) r.flukes.rotation.z = Math.sin(t * swimF * 0.7 + ph) * 0.3;
+    if (r.dorsal) r.dorsal.rotation.x = Math.sin(t * swimF * 0.5 + ph) * 0.1;
+    const pect = Math.sin(t * swimF * 0.8 + ph);
+    if (r.pectL) r.pectL.rotation.x = pect * 0.28;
+    if (r.pectR) r.pectR.rotation.x = -pect * 0.28;
+    const flip = Math.sin(t * swimF * 0.6 + ph);
+    if (r.flipperL) r.flipperL.rotation.x = flip * 0.45;
+    if (r.flipperR) r.flipperR.rotation.x = -flip * 0.45;
+    // rays/mantas/flying-fish/squid fins + dumbo ears
+    const flap = Math.sin(t * (1.4 + s.spec.speed) + ph);
+    if (r.wingL) r.wingL.rotation.x = flap * 0.5;
+    if (r.wingR) r.wingR.rotation.x = -flap * 0.5;
+    // paddling legs (turtle back legs / polar bear)
+    const paddle = Math.sin(t * 3 + ph);
+    if (r.legFL) r.legFL.rotation.x = paddle * 0.4;
+    if (r.legFR) r.legFR.rotation.x = -paddle * 0.4;
+    if (r.legBL) r.legBL.rotation.x = -paddle * 0.35;
+    if (r.legBR) r.legBR.rotation.x = paddle * 0.35;
+    // arms/tentacles ripple with a per-arm phase
+    for (let i = 0; i < 12; i++) {
+      const arm = r[`arm${i}`];
+      if (!arm) break;
+      arm.rotation.x = Math.sin(t * 1.6 + ph + i * 0.8) * 0.16;
+      arm.rotation.z = Math.cos(t * 1.3 + ph + i * 0.8) * 0.14;
+    }
+    if (r.tent0) r.tent0.rotation.z = Math.sin(t * 1.2 + ph) * 0.12;
+    if (r.tent1) r.tent1.rotation.z = Math.cos(t * 1.2 + ph) * 0.12;
+    // jaws slowly open and close (moray / gulper / anglerfish)
+    if (r.jaw) r.jaw.rotation.z = 0.08 + (Math.sin(t * 1.4 + ph) * 0.5 + 0.5) * 0.3;
+    // claws snip now and then
+    const snip = Math.max(0, Math.sin(t * 2.6 + ph)) * 0.22;
+    if (r.clawL) r.clawL.rotation.y = snip;
+    if (r.clawR) r.clawR.rotation.y = -snip;
+    if (r.antL) r.antL.rotation.z = Math.sin(t * 1.1 + ph) * 0.15;
+    if (r.antR) r.antR.rotation.z = Math.cos(t * 1.1 + ph) * 0.15;
+    if (r.lure) r.lure.rotation.z = Math.sin(t * 1.5 + ph) * 0.2;
+    if (r.head && (s.spec.style === "seahorse" || s.spec.style === "seal" || s.spec.style === "walrus" || s.spec.style === "bear" || s.spec.style === "turtle")) {
+      r.head.rotation.z = Math.sin(t * 1.2 + ph) * 0.09;
+    }
+    if (r.skirt) {
+      const p = 1 + 0.1 * Math.sin(t * 2.2 + ph);
+      r.skirt.scale.set(p, p, 1);
+    }
   }
 
   // ─── Public API ────────────────────────────────────────────────────────────
@@ -460,10 +544,19 @@ export class OceanDiveScene {
       if (!s.floorDweller || s.spec.style === "crab") {
         // face the swim direction (tangent of the circle)
         s.group.rotation.y = -s.angle + (s.angSpeed > 0 ? Math.PI : 0);
+        // gentle body roll + pitch — alive, not a statue on rails
+        if (this.reducedMotion) {
+          s.group.rotation.z = 0;
+          s.group.rotation.x = 0;
+        } else {
+          s.group.rotation.z = Math.sin(t * 0.9 + s.bobPhase) * 0.06;
+          s.group.rotation.x = Math.cos(t * s.bobFreq + s.bobPhase) * s.bobAmp * 0.08;
+        }
       }
+      if (!this.reducedMotion) this.animateRig(s, t);
       // jellyfish bell pulse
       if (s.spec.style === "jellyfish") {
-        const bell = s.group.getObjectByName("bell");
+        const bell = s.rig.bell;
         if (bell) {
           const p = 1 + 0.14 * Math.sin(t * 2.2 + s.bobPhase);
           bell.scale.set(1 / Math.sqrt(p), p, 1 / Math.sqrt(p));
@@ -475,6 +568,12 @@ export class OceanDiveScene {
       s.label.position.set(x, labelY, z);
       s.mystery.position.set(x, labelY, z);
     }
+
+    // seaweed sways with the current
+    this.seaweeds.forEach((w, i) => {
+      w.rotation.z = Math.sin(t * 0.8 + i * 1.3) * 0.16;
+      w.rotation.x = Math.cos(t * 0.6 + i * 0.9) * 0.1;
+    });
 
     // god rays sway gently
     this.rays.forEach((r, i) => {

@@ -18,13 +18,14 @@ import { CONTINENTS } from "../data/continents";
 import { getContinentId } from "../data/continentMapping";
 import { COUNTRY_BY_ID } from "../data/countries";
 import { oceanAt } from "../data/oceans";
+import { LANDMARKS } from "../data/landmarks";
 import type { SeasonSpec } from "../data/seasons";
-import { makeStarField, addNebulae, makeAtmosphere, mulberry32 } from "./proceduralTextures";
+import { makeStarField, addNebulae, makeAtmosphere, makeTextSprite, mulberry32 } from "./proceduralTextures";
 
 export type GlobeMode = "continents" | "countries";
 
 export interface GlobePick {
-  kind: GlobeMode | "ocean";
+  kind: GlobeMode | "ocean" | "landmark";
   id: string;
   screenX: number;
   screenY: number;
@@ -35,6 +36,7 @@ export interface GlobeSceneOptions {
   discovered: Set<string>;
   night: boolean;
   reducedMotion: boolean;
+  landmarksVisited?: Set<string>;
   onPick: (pick: GlobePick | null) => void;
   onMaxZoomOut?: () => void;
 }
@@ -141,6 +143,9 @@ export class GlobeScene {
   private season: SeasonSpec | null = null;
   private nightShade: THREE.Mesh | null = null;
   private sunLight!: THREE.DirectionalLight;
+  private pinGroup = new THREE.Group();
+  private pins: { id: string; ball: THREE.Mesh; halo: THREE.Sprite }[] = [];
+  private landmarksVisited: Set<string>;
   private reducedMotion: boolean;
   private onPick: (pick: GlobePick | null) => void;
   private onMaxZoomOut?: () => void;
@@ -173,6 +178,7 @@ export class GlobeScene {
     this.discovered = new Set(opts.discovered);
     this.night = opts.night;
     this.reducedMotion = opts.reducedMotion;
+    this.landmarksVisited = new Set(opts.landmarksVisited ?? []);
     this.onPick = opts.onPick;
     this.onMaxZoomOut = opts.onMaxZoomOut;
 
@@ -229,6 +235,7 @@ export class GlobeScene {
     this.globeGroup = new THREE.Group();
     this.scene.add(this.globeGroup);
     this.buildGlobe();
+    this.buildLandmarkPins();
 
     // ── Atmosphere ──
     this.atmosphere = makeAtmosphere(R * 1.18, 0x5aa7ff, 1.0);
@@ -323,6 +330,98 @@ export class GlobeScene {
     });
     this.overlayMesh = new THREE.Mesh(overlayGeo, overlayMat);
     this.globeGroup.add(this.overlayMesh);
+  }
+
+  /** Gold map-pins for the 16 world wonders, standing on the globe surface. */
+  private buildLandmarkPins() {
+    this.pinGroup = new THREE.Group();
+    for (const l of LANDMARKS) {
+      const surface = latLngToVec3(l.lat, l.lng, R * 1.002);
+      const normal = surface.clone().normalize();
+      const pin = new THREE.Group();
+
+      const visited = this.landmarksVisited.has(l.id);
+      const needle = new THREE.Mesh(
+        new THREE.ConeGeometry(1.5, 6.5, 8),
+        new THREE.MeshStandardMaterial({ color: "#c9962b", metalness: 0.5, roughness: 0.35 })
+      );
+      needle.rotation.x = Math.PI; // tip down (touches the surface)
+      needle.position.y = 3.25;
+      pin.add(needle);
+
+      const ball = new THREE.Mesh(
+        new THREE.SphereGeometry(2.5, 14, 14),
+        new THREE.MeshStandardMaterial({
+          color: visited ? "#2dd4bf" : "#f6c344",
+          metalness: 0.55,
+          roughness: 0.3,
+          emissive: new THREE.Color(visited ? "#0d9488" : "#b8860b"),
+          emissiveIntensity: 0.55,
+        })
+      );
+      ball.position.y = 7.4;
+      pin.add(ball);
+
+      // the site emoji floats above its pin (billboard sprite)
+      const emoji = makeTextSprite(l.emoji, { fontSize: 96, stroke: "rgba(0,0,0,0)" });
+      emoji.scale.multiplyScalar(7.5);
+      emoji.position.y = 13.5;
+      pin.add(emoji);
+      const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: this.pinHaloTexture(),
+        transparent: true,
+        opacity: 0.85,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }));
+      halo.position.y = 7.4;
+      halo.scale.set(9, 9, 1);
+      pin.add(halo);
+
+      // fat-finger target (kept modest so tiny countries stay tappable)
+      const hit = new THREE.Mesh(
+        new THREE.SphereGeometry(5, 8, 8),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hit.position.y = 8.5;
+      pin.add(hit);
+
+      pin.position.copy(surface);
+      pin.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal);
+      pin.traverse((o) => { o.userData.landmarkId = l.id; });
+      this.pinGroup.add(pin);
+      this.pins.push({ id: l.id, ball, halo });
+    }
+    this.globeGroup.add(this.pinGroup);
+  }
+
+  private haloTex: THREE.CanvasTexture | null = null;
+  private pinHaloTexture(): THREE.CanvasTexture {
+    if (this.haloTex) return this.haloTex;
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 32);
+      g.addColorStop(0, "rgba(255,214,110,0.9)");
+      g.addColorStop(1, "rgba(255,214,110,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 64, 64);
+    }
+    this.haloTex = new THREE.CanvasTexture(canvas);
+    return this.haloTex;
+  }
+
+  /** Repaint pin colors when a landmark becomes "visited". */
+  setLandmarksVisited(visited: Set<string>) {
+    this.landmarksVisited = new Set(visited);
+    for (const p of this.pins) {
+      const done = this.landmarksVisited.has(p.id);
+      const mat = p.ball.material as THREE.MeshStandardMaterial;
+      mat.color.set(done ? "#2dd4bf" : "#f6c344");
+      mat.emissive.set(done ? "#0d9488" : "#b8860b");
+    }
   }
 
   // ─── Texture painting ──────────────────────────────────────────────────────
@@ -712,6 +811,14 @@ export class GlobeScene {
       -((clientY - rect.top) / rect.height) * 2 + 1
     );
     this.raycaster.setFromCamera(ndc, this.camera);
+
+    // landmark pins first — they stand above the surface
+    const pinHits = this.raycaster.intersectObjects(this.pinGroup.children, true);
+    for (const hit of pinHits) {
+      const lid = hit.object.userData.landmarkId as string | undefined;
+      if (lid) return { kind: "landmark", id: lid, screenX: clientX, screenY: clientY };
+    }
+
     const hits = this.raycaster.intersectObject(this.globeMesh, false);
     if (hits.length === 0) return null;
 
@@ -883,6 +990,20 @@ export class GlobeScene {
         // A finished flight counts as interaction — hold still afterwards
         // instead of immediately resuming the idle auto-rotation.
         this.lastInteraction = now;
+      }
+    }
+
+    // Unvisited landmark pins pulse invitingly
+    if (!this.reducedMotion) {
+      const pulse = 1 + Math.sin(now / 320) * 0.14;
+      for (const p of this.pins) {
+        if (this.landmarksVisited.has(p.id)) {
+          p.ball.scale.set(1, 1, 1);
+          p.halo.material.opacity = 0.35;
+        } else {
+          p.ball.scale.set(pulse, pulse, pulse);
+          p.halo.material.opacity = 0.5 + Math.sin(now / 320) * 0.3;
+        }
       }
     }
 

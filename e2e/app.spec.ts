@@ -100,11 +100,12 @@ test("3D globe renders, and tapping a known country discovers it", async ({ page
   await page.getByRole("button", { name: "מדינות 🗺️" }).click();
   await expect(page.getByText(`0/${N_COUNTRIES}`)).toBeVisible();
 
-  // Deterministic pick: fly the globe to Israel, then tap the screen center.
+  // Deterministic pick: fly the globe to the heart of Brazil (far from any
+  // landmark pin — the pins win taps by design), then tap the screen center.
   await page.waitForFunction(() => "__globeScene" in window, undefined, { timeout: 20_000 });
   await page.evaluate(() => {
     (window as unknown as { __globeScene: { flyTo: (lat: number, lng: number, z?: number) => void } })
-      .__globeScene.flyTo(31.5, 35.0, 200);
+      .__globeScene.flyTo(-10.5, -53.0, 200);
   });
   // Wait until the flight fully converges (frame-rate independent — SwiftShader
   // rendering under parallel test load can run at ~10fps).
@@ -119,7 +120,7 @@ test("3D globe renders, and tapping a known country discovers it", async ({ page
   if (!box) throw new Error("globe container has no box");
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 
-  await expect(page.getByText("ישראל", { exact: true })).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByText("ברזיל", { exact: true })).toBeVisible({ timeout: 5_000 });
   await expect(page.getByText(`1/${N_COUNTRIES}`)).toBeVisible();
 });
 
@@ -304,4 +305,228 @@ test("daily challenge: launches a special round", async ({ page }) => {
   await page.getByTestId("quiz-daily").click();
   await expect(page.getByTestId("quiz-question")).toBeVisible();
   await expect(page.getByText("🔥", { exact: false }).first()).toBeVisible();
+});
+
+// ─── 4.0: world wonders ───────────────────────────────────────────────────────
+
+test("home screen shows the 4.0 tiles and the parents chip", async ({ page }) => {
+  await gotoHome(page);
+  await expect(page.getByTestId("home-landmarks")).toContainText("פלאי העולם");
+  await expect(page.getByTestId("home-learn")).toContainText("בית הספר הקטן");
+  await expect(page.getByTestId("home-parents")).toBeVisible();
+});
+
+test("landmarks: gallery opens, visiting the Kotel renders the 3D site and marks it visited", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-landmarks").click();
+  await expect(page.getByText("פלאי העולם").first()).toBeVisible();
+  await expect(page.getByText(/ביקרתם ב-0 מתוך 16/)).toBeVisible();
+
+  await page.getByTestId("landmark-card-kotel").click();
+  const container = page.getByTestId("landmark-container");
+  await expect(container.locator("canvas")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("treasure-counter")).toContainText("0/3");
+  await expect(page.getByText(/חפשו את האוצרות/)).toBeVisible();
+
+  // back to the gallery — the visit was recorded
+  await page.getByTestId("landmark-back").click();
+  await expect(page.getByText(/ביקרתם ב-1 מתוך 16/)).toBeVisible();
+  await expect(page.getByTestId("landmark-card-kotel")).toContainText("ביקרנו");
+});
+
+test("globe: the gold pin opens the wonder card and flies into the visit", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-globe").click();
+  const container = page.getByTestId("globe-container");
+  await expect(container.locator("canvas")).toBeVisible({ timeout: 20_000 });
+
+  await page.waitForFunction(() => "__globeScene" in window, undefined, { timeout: 20_000 });
+  await page.evaluate(() => {
+    (window as unknown as { __globeScene: { flyTo: (lat: number, lng: number, z?: number) => void } })
+      .__globeScene.flyTo(31.7767, 35.2345, 190);
+  });
+  await page.waitForFunction(
+    () => !(window as unknown as { __globeScene: { flyTarget: unknown } }).__globeScene.flyTarget,
+    undefined,
+    { timeout: 30_000 }
+  );
+  await page.waitForTimeout(300);
+
+  const box = await container.boundingBox();
+  if (!box) throw new Error("globe container has no box");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+  // the pin wins the pick → wonder bubble → card → visit
+  await expect(page.getByText("הכותל המערבי").first()).toBeVisible({ timeout: 5_000 });
+  await page.getByRole("button", { name: "עוד! 👀" }).click();
+  await page.getByTestId("visit-landmark").click();
+  await expect(page.getByTestId("landmark-container").locator("canvas")).toBeVisible({ timeout: 20_000 });
+  await page.getByTestId("landmark-back").click();
+});
+
+// ─── 4.0: the little school ───────────────────────────────────────────────────
+
+test("math game: a full addition round reaches the medal modal", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-math").click();
+  await page.getByTestId("math-level-add").click();
+
+  for (let i = 0; i < 8; i++) {
+    const q = page.getByTestId("math-question");
+    await expect(q).toBeVisible();
+    const answer = await q.getAttribute("data-answer");
+    await page.getByTestId(`math-opt-${answer}`).click();
+    await page.waitForTimeout(1250);
+  }
+  await expect(page.getByTestId("math-result")).toBeVisible({ timeout: 5_000 });
+});
+
+test("letters board: a letter card opens with its nikud row", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-letters").click();
+  await page.getByTestId("letter-card-ב").click();
+  await expect(page.getByTestId("nikud-kamatz")).toBeVisible();
+  await expect(page.getByText("בַּיִת")).toBeVisible();
+  await page.getByTestId("nikud-kamatz").click(); // speaks the syllable
+});
+
+test("letter hunt: finds letters by their spoken name", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-letters").click();
+  await page.getByTestId("letter-hunt").click();
+  for (let i = 0; i < 3; i++) {
+    const q = page.getByTestId("hunt-question");
+    await expect(q).toBeVisible();
+    const target = await q.getAttribute("data-target");
+    await page.getByTestId(`hunt-opt-${target}`).click();
+    await page.waitForTimeout(350);
+  }
+});
+
+test("reading game: reading words to the medal modal", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-reading").click();
+
+  for (let i = 0; i < 8; i++) {
+    const w = page.getByTestId("reading-word");
+    await expect(w).toBeVisible();
+    const id = await w.getAttribute("data-word-id");
+    await page.getByTestId(`reading-opt-${id}`).click();
+    await page.waitForTimeout(1350);
+  }
+  await expect(page.getByTestId("reading-result")).toBeVisible({ timeout: 5_000 });
+});
+
+test("clock game: reads the hands and answers correctly", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-clock").click();
+  await page.getByTestId("clock-level-full").click();
+
+  for (let i = 0; i < 6; i++) {
+    const face = page.getByTestId("clock-face");
+    await expect(face).toBeVisible();
+    const hour = await face.getAttribute("data-hour");
+    await page.getByTestId(`clock-opt-${hour}-full`).click();
+    await page.waitForTimeout(1350);
+  }
+  await expect(page.getByTestId("clock-result")).toBeVisible({ timeout: 5_000 });
+});
+
+test("memory game: flipping two cards counts a move", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-memory").click();
+  await page.getByTestId("memory-theme-ocean").click();
+  await page.getByTestId("memory-card-0").click();
+  await page.getByTestId("memory-card-1").click();
+  await expect(page.getByTestId("memory-moves")).toContainText("1");
+});
+
+test("music box: keys play and a song can start", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-music").click();
+  await page.getByTestId("music-key-0").click();
+  await page.getByTestId("music-key-4").click();
+  await page.getByTestId("music-song-yonatan").click();
+  await expect(page.getByTestId("music-progress")).toBeVisible();
+});
+
+test("drawing pad: draws a stroke and clears", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-drawing").click();
+  const canvas = page.getByTestId("drawing-canvas");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("no canvas box");
+  await page.mouse.move(box.x + 60, box.y + 80);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 180, box.y + 200, { steps: 8 });
+  await page.mouse.up();
+  await page.getByTestId("drawing-clear").click();
+});
+
+// ─── 4.0: quiz upgrades ───────────────────────────────────────────────────────
+
+test("quiz: the landmarks (which country?) round runs with flag options", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-quiz").click();
+  await page.getByTestId("quiz-cat-landmarks").click();
+  await expect(page.getByTestId("quiz-question")).toContainText("באיזו מדינה");
+  const done = () => page.getByTestId("quiz-result").isVisible().catch(() => false);
+  for (let q = 0; q < 8 && !(await done()); q++) {
+    for (let attempt = 0; attempt < 4 && !(await done()); attempt++) {
+      const cards = page.locator('[data-testid^="quiz-choice-"]');
+      const n = await cards.count();
+      if (n === 0) break;
+      await cards.nth(attempt % n).click({ force: true });
+      await page.waitForTimeout(450);
+    }
+    await page.waitForTimeout(300);
+  }
+  await expect(page.getByTestId("quiz-result")).toBeVisible({ timeout: 15_000 });
+});
+
+test("quiz: capitals round shows big text answers", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-quiz").click();
+  await page.getByTestId("quiz-cat-capitals").click();
+  await expect(page.getByTestId("quiz-question")).toContainText("עיר הבירה");
+  await expect(page.locator('[data-testid^="quiz-choice-"]').first()).toBeVisible();
+});
+
+test("quiz: marine options show real rendered creature portraits", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-quiz").click();
+  await page.getByTestId("quiz-cat-marine").click();
+  await expect(page.locator('[data-testid^="quiz-choice-"]').first()).toBeVisible();
+  // WebGL is available in the test browser → the options carry <img> portraits
+  expect(await page.locator('[data-testid^="quiz-choice-"] img').count()).toBeGreaterThan(0);
+});
+
+test("parents report opens behind the gate and shows school progress", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-parents").click();
+  const qText = (await page.getByTestId("gate-question").textContent()) ?? "";
+  const m = qText.match(/(\d+)\s*×\s*(\d+)/);
+  expect(m).toBeTruthy();
+  for (const digit of String(Number(m![1]) * Number(m![2]))) {
+    await page.getByTestId(`gate-key-${digit}`).click();
+  }
+  await expect(page.getByTestId("parents-report")).toBeVisible();
+  await expect(page.getByTestId("parents-report")).toContainText("בית הספר הקטן");
+  await expect(page.getByTestId("parents-report")).toContainText("פלאי עולם");
+});
+
+test("encyclopedia shows the wonders and treasures sections", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-encyclopedia").click();
+  await expect(page.getByTestId("enc-tab-landmarks")).toBeVisible();
+  await page.getByTestId("enc-tab-treasures").click();
+  await expect(page.getByTestId("enc-tab-treasures")).toContainText("אוצרות");
 });
