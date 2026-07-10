@@ -1,6 +1,8 @@
 // Quiz engine — pure logic, unit-tested. UI lives in components/Quiz.
 
-export type QuizCategory = "continents" | "countries" | "israel" | "planets" | "flags" | "marine";
+export type QuizCategory =
+  | "continents" | "countries" | "israel" | "planets"
+  | "flags" | "marine" | "landmarks" | "capitals";
 
 export interface QuizItem {
   id: string;
@@ -35,6 +37,8 @@ export const STARTER_POOLS: Record<QuizCategory, string[]> = {
   // flags reuse the "famous countries" set; marine leans on iconic sea animals
   flags: ["840", "250", "076", "826", "380", "724", "392", "156", "036", "643"],
   marine: ["clownfish", "dolphin", "sea-turtle", "reef-shark", "blue-whale", "octopus", "penguin", "seahorse"],
+  landmarks: ["kotel", "pyramids", "eiffel", "liberty", "bigben", "greatwall", "fuji", "opera"],
+  capitals: ["376", "840", "250", "826", "380", "392", "818", "724"],
 };
 
 /** Deterministic-friendly shuffle (Fisher–Yates) with injectable rng for tests. */

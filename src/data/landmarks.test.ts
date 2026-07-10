@@ -60,6 +60,22 @@ describe("landmarks data", () => {
   });
 });
 
+describe("new quiz categories", () => {
+  it("landmarks starter pool points at real landmarks", async () => {
+    const { STARTER_POOLS } = await import("../lib/quiz");
+    const ids = new Set(LANDMARKS.map((l) => l.id));
+    for (const id of STARTER_POOLS.landmarks) expect(ids.has(id), id).toBe(true);
+  });
+
+  it("capitals starter pool countries all have capital details", async () => {
+    const { STARTER_POOLS } = await import("../lib/quiz");
+    const { getCountryDetails } = await import("./countryDetails");
+    for (const id of STARTER_POOLS.capitals) {
+      expect(getCountryDetails(id)?.capitalHebrew, id).toBeTruthy();
+    }
+  });
+});
+
 describe("landmark 3D builders", () => {
   it("every site builds a non-empty group", async () => {
     const { buildLandmarkSite } = await import("../three/landmarkKit");

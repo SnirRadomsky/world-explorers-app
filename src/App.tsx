@@ -341,6 +341,8 @@ export default function App() {
             planets: planetsDiscovery.discovered,
             flags: countriesDiscovery.discovered,
             marine: oceanDiscovery.discovered,
+            landmarks: landmarksDiscovery.discovered,
+            capitals: countriesDiscovery.discovered,
           }}
           speakHebrew={speakHebrew}
           playSfx={play}
