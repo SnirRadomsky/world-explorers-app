@@ -14,6 +14,7 @@ import StickerAlbum from "./components/Album/StickerAlbum";
 import Encyclopedia from "./components/Explorer/Encyclopedia";
 import StickerCelebration from "./components/Album/StickerCelebration";
 import ParentalGate from "./components/UI/ParentalGate";
+import ParentsReport from "./components/UI/ParentsReport";
 import DiscoveryCounter from "./components/UI/DiscoveryCounter";
 import AudioToggle from "./components/UI/AudioToggle";
 import { useDiscovery } from "./hooks/useDiscovery";
@@ -69,6 +70,8 @@ export default function App() {
   const [flight, setFlight] = useState<Flight | null>(null);
   const [oceanStart, setOceanStart] = useState<OceanId | undefined>(undefined);
   const [visitingLandmark, setVisitingLandmark] = useState<string | null>(null);
+  const [reportGateOpen, setReportGateOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Local calendar day (YYYY-MM-DD) for the daily challenge — offline, no clock in pure logic.
   const todayStr = useMemo(() => {
@@ -90,6 +93,11 @@ export default function App() {
   const landmarksDiscovery = useDiscovery("landmarks");
   const treasuresDiscovery = useDiscovery("treasures");
 
+  const mathStarsTotal =
+    (learning.data.mathStars.count ?? 0) +
+    (learning.data.mathStars.add ?? 0) +
+    (learning.data.mathStars.sub ?? 0);
+
   const progressSnapshot = useMemo(
     () => ({
       continentsDiscovered: continentsDiscovery.discovered,
@@ -99,6 +107,13 @@ export default function App() {
       constellationsDiscovered: constellationsDiscovery.totalDiscovered,
       oceanDiscovered: oceanDiscovery.discovered,
       visitedCount: visitedDiscovery.totalDiscovered,
+      landmarksVisited: landmarksDiscovery.totalDiscovered,
+      treasuresFound: treasuresDiscovery.totalDiscovered,
+      lettersKnown: learning.lettersHeard.size,
+      wordsRead: learning.wordsRead.size,
+      mathStarsTotal,
+      memoryWins: learning.data.memoryWins,
+      songsDone: learning.data.songsDone.length,
     }),
     [
       continentsDiscovery.discovered,
@@ -108,6 +123,13 @@ export default function App() {
       constellationsDiscovery.totalDiscovered,
       oceanDiscovery.discovered,
       visitedDiscovery.totalDiscovered,
+      landmarksDiscovery.totalDiscovered,
+      treasuresDiscovery.totalDiscovered,
+      learning.lettersHeard.size,
+      learning.wordsRead.size,
+      mathStarsTotal,
+      learning.data.memoryWins,
+      learning.data.songsDone.length,
     ]
   );
 
@@ -191,6 +213,7 @@ export default function App() {
       {screen === "home" && (
         <HomeScreen
           onSelect={handleHomeSelect}
+          onParents={() => setReportGateOpen(true)}
           totalDiscovered={grandTotal}
           discoveredPerMode={{
             continents: continentsDiscovery.totalDiscovered,
@@ -374,6 +397,8 @@ export default function App() {
             planets: planetsDiscovery.discovered,
             constellations: constellationsDiscovery.discovered,
             ocean: oceanDiscovery.discovered,
+            landmarks: landmarksDiscovery.discovered,
+            treasures: treasuresDiscovery.discovered,
           }}
           speakHebrew={speakHebrew}
           playSfx={play}
@@ -392,6 +417,30 @@ export default function App() {
         />
       )}
       <ParentalGate open={gateOpen} onSuccess={doReset} onClose={() => setGateOpen(false)} />
+      <ParentalGate
+        open={reportGateOpen}
+        onSuccess={() => {
+          setReportGateOpen(false);
+          setReportOpen(true);
+        }}
+        onClose={() => setReportGateOpen(false)}
+      />
+      <ParentsReport
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        data={{
+          continents: continentsDiscovery.totalDiscovered,
+          countries: countriesDiscovery.totalDiscovered,
+          israel: israelDiscovery.totalDiscovered,
+          planets: planetsDiscovery.totalDiscovered,
+          ocean: oceanDiscovery.totalDiscovered,
+          landmarks: landmarksDiscovery.totalDiscovered,
+          treasures: treasuresDiscovery.totalDiscovered,
+          stickers: stickers.unlocked.size,
+          dailyStreak: stickers.dailyStreak,
+          learn: learning.data,
+        }}
+      />
       <StickerCelebration
         stickerId={stickers.pendingCelebration}
         onClose={() => stickers.pendingCelebration && stickers.markCelebrated(stickers.pendingCelebration)}

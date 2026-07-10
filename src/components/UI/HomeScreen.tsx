@@ -12,6 +12,7 @@ export type HomeTarget =
 
 interface HomeScreenProps {
   onSelect: (target: HomeTarget) => void;
+  onParents: () => void;
   totalDiscovered: number;
   discoveredPerMode: {
     continents: number;
@@ -23,6 +24,27 @@ interface HomeScreenProps {
   };
   stickersUnlocked: number;
   stickersTotal: number;
+}
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        gridColumn: "span 2",
+        fontFamily: "Heebo, sans-serif",
+        fontWeight: 900,
+        fontSize: 15,
+        color: "#1a365d",
+        padding: "6px 4px 0",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      {children}
+      <span style={{ flex: 1, height: 2, borderRadius: 2, background: "rgba(26,54,93,0.12)" }} />
+    </div>
+  );
 }
 
 const tile: React.CSSProperties = {
@@ -93,6 +115,7 @@ function Tile({
 
 export default function HomeScreen({
   onSelect,
+  onParents,
   totalDiscovered,
   discoveredPerMode,
   stickersUnlocked,
@@ -162,6 +185,7 @@ export default function HomeScreen({
           maxWidth: 460,
         }}
       >
+        <SectionHeader>🌍 מגלים את העולם</SectionHeader>
         <Tile
           big
           emoji="🌍"
@@ -217,6 +241,7 @@ export default function HomeScreen({
           onClick={() => onSelect("landmarks")}
           testId="home-landmarks"
         />
+        <SectionHeader>🎓 לומדים ומשחקים</SectionHeader>
         <Tile
           emoji="🎓"
           label="בית הספר הקטן"
@@ -255,6 +280,27 @@ export default function HomeScreen({
           testId="home-album"
         />
       </div>
+
+      {/* parents corner */}
+      <button
+        onClick={onParents}
+        data-testid="home-parents"
+        style={{
+          fontFamily: "Heebo, sans-serif",
+          border: "none",
+          borderRadius: 999,
+          background: "rgba(255,255,255,0.75)",
+          color: "#475569",
+          fontWeight: 800,
+          fontSize: 13,
+          padding: "8px 18px",
+          cursor: "pointer",
+          boxShadow: "0 3px 10px rgba(0,0,0,0.1)",
+          marginBottom: 8,
+        }}
+      >
+        👨‍👩‍👧 להורים: דו"ח התקדמות
+      </button>
     </div>
   );
 }
