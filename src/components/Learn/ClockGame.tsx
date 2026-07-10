@@ -114,7 +114,6 @@ export default function ClockGame({ learning, speakHebrew, playSfx }: ClockGameP
   const target = round[index];
   const options = useMemo(
     () => (target ? makeOptions(target, withHalves ?? false) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [target, withHalves]
   );
 

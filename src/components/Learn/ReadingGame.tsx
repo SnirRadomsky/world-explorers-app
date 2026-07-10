@@ -19,9 +19,16 @@ interface ReadingGameProps {
   playSfx: (name: SfxName) => void;
 }
 
+function newGame(): { targets: string[]; options: Record<string, string[]> } {
+  const allIds = READING_WORDS.map((w) => w.id);
+  const targets = shuffle(allIds).slice(0, ROUND);
+  const options = Object.fromEntries(targets.map((t) => [t, pickOptions(allIds, t, 4)]));
+  return { targets, options };
+}
+
 export default function ReadingGame({ learning, speakHebrew, playSfx }: ReadingGameProps) {
-  const [targets, setTargets] = useState<string[]>(() => shuffle(READING_WORDS.map((w) => w.id)).slice(0, ROUND));
-  const [optionsMap] = useState<Record<string, string[]>>(() => ({}));
+  const [game, setGame] = useState(newGame);
+  const targets = game.targets;
   const [index, setIndex] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [firstTryCount, setFirstTryCount] = useState(0);
@@ -32,24 +39,16 @@ export default function ReadingGame({ learning, speakHebrew, playSfx }: ReadingG
 
   const targetId = targets[index];
   const word = READING_WORD_BY_ID.get(targetId);
-
-  const options = useMemo(() => {
-    if (!targetId) return [];
-    if (!optionsMap[targetId]) {
-      optionsMap[targetId] = pickOptions(READING_WORDS.map((w) => w.id), targetId, 4);
-    }
-    return optionsMap[targetId];
-  }, [targetId, optionsMap]);
+  const options = useMemo(() => game.options[targetId] ?? [], [game.options, targetId]);
 
   const restart = useCallback(() => {
-    setTargets(shuffle(READING_WORDS.map((w) => w.id)).slice(0, ROUND));
-    for (const k of Object.keys(optionsMap)) delete optionsMap[k];
+    setGame(newGame());
     setIndex(0);
     setAttempts(0);
     setFirstTryCount(0);
     setFinished(false);
     setLocked(false);
-  }, [optionsMap]);
+  }, []);
 
   const tap = useCallback((id: string) => {
     if (!word || locked || finished) return;
