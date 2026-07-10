@@ -378,12 +378,12 @@ export class GlobeScene {
       halo.scale.set(9, 9, 1);
       pin.add(halo);
 
-      // fat-finger target
+      // fat-finger target (kept modest so tiny countries stay tappable)
       const hit = new THREE.Mesh(
-        new THREE.SphereGeometry(6.5, 8, 8),
+        new THREE.SphereGeometry(5, 8, 8),
         new THREE.MeshBasicMaterial({ visible: false })
       );
-      hit.position.y = 8;
+      hit.position.y = 8.5;
       pin.add(hit);
 
       pin.position.copy(surface);
