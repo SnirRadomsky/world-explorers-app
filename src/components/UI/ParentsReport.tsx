@@ -4,13 +4,14 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { CONTINENTS } from "../../data/continents";
 import { COUNTRIES } from "../../data/countries";
-import { TOTAL_ISRAEL_CITIES } from "../../data/israelCities";
+import { TOTAL_ISRAEL_SITES } from "../../data/israelCities";
 import { TOTAL_SPACE_OBJECTS } from "../../data/planets";
 import { TOTAL_MARINE_CREATURES } from "../../data/marineLife";
 import { TOTAL_LANDMARKS, TOTAL_TREASURES } from "../../data/landmarks";
 import { TOTAL_LETTERS } from "../../data/hebrewLetters";
 import { TOTAL_READING_WORDS } from "../../data/readingWords";
 import { STICKERS } from "../../lib/stickers";
+import { TOTAL_SONGS } from "../../data/songs";
 import type { LearnData } from "../../hooks/useLearning";
 
 export interface ParentsReportData {
@@ -52,6 +53,7 @@ function Row({ emoji, label, value, total }: { emoji: string; label: string; val
 
 export default function ParentsReport({ open, onClose, data }: ParentsReportProps) {
   const mathStars = (data.learn.mathStars.count ?? 0) + (data.learn.mathStars.add ?? 0) + (data.learn.mathStars.sub ?? 0);
+  const clockStars = Object.values(data.learn.clockModeStars ?? {}).reduce((a, b) => a + (b ?? 0), 0);
   return (
     <AnimatePresence>
       {open && (
@@ -96,7 +98,7 @@ export default function ParentsReport({ open, onClose, data }: ParentsReportProp
             <div style={{ fontWeight: 800, fontSize: 13, color: "#64748b", margin: "12px 0 2px" }}>🌍 גילוי העולם</div>
             <Row emoji="🌍" label="יבשות" value={data.continents} total={CONTINENTS.length} />
             <Row emoji="🗺️" label="מדינות" value={data.countries} total={COUNTRIES.length} />
-            <Row emoji="🇮🇱" label="ערי ישראל" value={data.israel} total={TOTAL_ISRAEL_CITIES} />
+            <Row emoji="🇮🇱" label="ערי ישראל ואתרים" value={data.israel} total={TOTAL_ISRAEL_SITES} />
             <Row emoji="🪐" label="גופי חלל" value={data.planets} total={TOTAL_SPACE_OBJECTS} />
             <Row emoji="🐠" label="חיות ים" value={data.ocean} total={TOTAL_MARINE_CREATURES} />
             <Row emoji="🏛️" label="פלאי עולם" value={data.landmarks} total={TOTAL_LANDMARKS} />
@@ -106,9 +108,10 @@ export default function ParentsReport({ open, onClose, data }: ParentsReportProp
             <Row emoji="🔤" label="אותיות שהוכרו" value={data.learn.lettersHeard.length} total={TOTAL_LETTERS} />
             <Row emoji="📖" label="מילים שנקראו" value={data.learn.wordsRead.length} total={TOTAL_READING_WORDS} />
             <Row emoji="➕" label="כוכבי חשבון" value={mathStars} total={9} />
-            <Row emoji="🕒" label="כוכבי שעון" value={data.learn.clockStars} total={3} />
+            <Row emoji="🕒" label="כוכבי שעון" value={clockStars} total={15} />
             <Row emoji="🃏" label="ניצחונות זיכרון" value={data.learn.memoryWins} />
-            <Row emoji="🎵" label="שירים שנוגנו" value={data.learn.songsDone.length} total={3} />
+            <Row emoji="🎵" label="שירים שנוגנו" value={data.learn.songsDone.length} total={TOTAL_SONGS} />
+            <Row emoji="🦜" label="שיא משחק ההד" value={data.learn.echoBest ?? 0} />
 
             <div style={{ fontWeight: 800, fontSize: 13, color: "#64748b", margin: "14px 0 2px" }}>🏆 הישגים</div>
             <Row emoji="📒" label="מדבקות" value={data.stickers} total={STICKERS.length} />

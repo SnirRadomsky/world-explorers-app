@@ -1,4 +1,4 @@
-// פלאי העולם gallery — a colorful grid of the 16 famous places. Each card
+// פלאי העולם gallery — a colorful grid of the 20 famous places. Each card
 // shows visit status + how many of its 3 treasures were found; tapping a card
 // flies straight into the 3D visit.
 

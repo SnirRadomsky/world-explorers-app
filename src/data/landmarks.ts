@@ -1,4 +1,4 @@
-// פלאי העולם — 16 famous places reachable from the globe (gold pins) or the
+// פלאי העולם — 20 famous places reachable from the globe (gold pins) or the
 // gallery. Each has a rich 3D scene (three/landmarkKit) and 3 hidden treasures
 // to find — the "items" of the landmarks world.
 
@@ -283,6 +283,70 @@ export const LANDMARKS: LandmarkSpec[] = [
       { id: "pen-egg",     emoji: "🥚", nameHebrew: "ביצת פינגווין", factHebrew: "אבא פינגווין מחמם את הביצה על הרגליים חודשיים שלמים!" },
       { id: "pen-fish",    emoji: "🐟", nameHebrew: "דג ארוחה",      factHebrew: "פינגווין יכול לאכול קילוגרם דגים ביום אחד!" },
       { id: "pen-iceberg", emoji: "🧊", nameHebrew: "קרחון קטן",     factHebrew: "רוב הקרחון מסתתר מתחת למים — רואים רק את הקצה!" },
+    ],
+  },
+  {
+    id: "petra",
+    nameHebrew: "פטרה",
+    emoji: "🏜️",
+    countryHebrew: "ירדן",
+    flagEmoji: "🇯🇴",
+    lat: 30.3285, lng: 35.4444,
+    factHebrew: "פטרה חצובה כולה בתוך סלע ורוד — עיר שלמה שמגיעים אליה דרך נקיק צר בין צוקים ענקיים!",
+    welcomeHebrew: "ברוכים הבאים לפטרה שבירדן! תראו את הארמון החצוב בסלע הוורוד!",
+    sky: "sunset", ground: "sand",
+    treasures: [
+      { id: "petra-camel", emoji: "🐫", nameHebrew: "גמל השיירות", factHebrew: "שיירות גמלים עברו בפטרה לפני 2,000 שנה עם תבלינים ובשמים!" },
+      { id: "petra-urn",   emoji: "🏺", nameHebrew: "כד נבטי",      factHebrew: "הנבטים שבנו את פטרה ידעו לאסוף מי גשם במדבר בתעלות סודיות!" },
+      { id: "petra-rose",  emoji: "🌹", nameHebrew: "אבן ורודה",    factHebrew: "פטרה נקראת 'העיר הוורודה' — כי כולה חצובה בסלע ורוד!" },
+    ],
+  },
+  {
+    id: "neuschwanstein",
+    nameHebrew: "טירת נוישוונשטיין",
+    emoji: "🏰",
+    countryHebrew: "גרמניה",
+    flagEmoji: "🇩🇪",
+    lat: 47.5576, lng: 10.7498,
+    factHebrew: "טירת נוישוונשטיין נראית כמו טירה מאגדה — היא נתנה השראה לטירות שבסרטים המצוירים!",
+    welcomeHebrew: "ברוכים הבאים לגרמניה! טירת האגדות הלבנה מציצה מבין ההרים!",
+    sky: "day", ground: "grass",
+    treasures: [
+      { id: "castle-crown", emoji: "👑", nameHebrew: "כתר מלכותי", factHebrew: "המלך לודוויג שבנה את הטירה אהב אגדות, שירים וברבורים!" },
+      { id: "castle-swan",  emoji: "🦢", nameHebrew: "ברבור לבן",   factHebrew: "שם הטירה פירושו 'אבן הברבור החדשה' — והברבור הוא הסמל שלה!" },
+      { id: "castle-key",   emoji: "🗝️", nameHebrew: "מפתח זהב",    factHebrew: "בטירה תוכננו יותר מ-200 חדרים — ורובם לא הושלמו אף פעם!" },
+    ],
+  },
+  {
+    id: "burj",
+    nameHebrew: "בורג' ח'ליפה",
+    emoji: "🌆",
+    countryHebrew: "איחוד האמירויות",
+    flagEmoji: "🇦🇪",
+    lat: 25.1972, lng: 55.2744,
+    factHebrew: "בורג' ח'ליפה הוא הבניין הכי גבוה בעולם — 828 מטרים! רואים ממנו את המדבר ואת הים ביחד.",
+    welcomeHebrew: "ברוכים הבאים לדובאי! המגדל הכי גבוה בעולם נוגע בעננים!",
+    sky: "dusk", ground: "plaza",
+    treasures: [
+      { id: "burj-elevator", emoji: "🛗", nameHebrew: "מעלית טילים",   factHebrew: "המעליות של בורג' ח'ליפה טסות 10 מטרים בשנייה!" },
+      { id: "burj-fountain", emoji: "⛲", nameHebrew: "מזרקה מרקדת",  factHebrew: "למרגלות המגדל יש מזרקה ענקית שרוקדת לצלילי מוזיקה!" },
+      { id: "burj-falcon",   emoji: "🦅", nameHebrew: "בז המדבר",      factHebrew: "הבז הוא הציפור הלאומית של האמירויות — והעוף הכי מהיר בעולם!" },
+    ],
+  },
+  {
+    id: "niagara",
+    nameHebrew: "מפלי הניאגרה",
+    emoji: "💦",
+    countryHebrew: "קנדה",
+    flagEmoji: "🇨🇦",
+    lat: 43.0962, lng: -79.0377,
+    factHebrew: "במפלי הניאגרה זורמים מיליוני ליטרים של מים — בכל שנייה! את הרעש שומעים מקילומטרים.",
+    welcomeHebrew: "ברוכים הבאים לקנדה! מפל המים הענק רועם ומרסס לכל עבר!",
+    sky: "day", ground: "grass",
+    treasures: [
+      { id: "nia-rainbow", emoji: "🌈", nameHebrew: "קשת בענן",     factHebrew: "מעל המפלים כמעט תמיד יש קשת — בגלל רסס המים בשמש!" },
+      { id: "nia-boat",    emoji: "🚢", nameHebrew: "ספינת הערפל",  factHebrew: "ספינות מפליגות ממש עד המפל — והנוסעים לובשים מעילי גשם!" },
+      { id: "nia-beaver",  emoji: "🦫", nameHebrew: "בונה חרוץ",    factHebrew: "הבונה הוא סמל של קנדה — הוא בונה סכרים שלמים מענפי עצים!" },
     ],
   },
 ];

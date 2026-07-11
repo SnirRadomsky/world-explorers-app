@@ -2,7 +2,7 @@
 
 import { CONTINENTS } from "../data/continents";
 import { COUNTRIES } from "../data/countries";
-import { TOTAL_ISRAEL_CITIES } from "../data/israelCities";
+import { TOTAL_ISRAEL_SITES } from "../data/israelCities";
 import { TOTAL_SPACE_OBJECTS } from "../data/planets";
 import { TOTAL_CONSTELLATIONS } from "../data/constellations";
 import { MARINE_LIFE, TOTAL_MARINE_CREATURES } from "../data/marineLife";
@@ -55,7 +55,7 @@ export const STICKERS: StickerDef[] = [
   { id: "st-champion",  emoji: "🏆", nameHebrew: "אלוף העולם",    howHebrew: "גלו 150 גילויים" },
   { id: "st-continents",emoji: "🌍", nameHebrew: "מגלה היבשות",   howHebrew: "גלו את כל 7 היבשות" },
   ...CONTINENT_STICKERS,
-  { id: "st-israel",    emoji: "🇮🇱", nameHebrew: "מלך ישראל",     howHebrew: "גלו את כל ערי ישראל" },
+  { id: "st-israel",    emoji: "🇮🇱", nameHebrew: "מלך ישראל",     howHebrew: "גלו את כל ערי ישראל והאתרים המיוחדים" },
   { id: "st-astronaut", emoji: "👨‍🚀", nameHebrew: "אסטרונאוט",     howHebrew: "גלו את כל מערכת השמש" },
   { id: "st-stargazer", emoji: "🔭", nameHebrew: "צופה כוכבים",   howHebrew: "גלו את כל המזלות בשמי החלל" },
   { id: "st-seasons",   emoji: "🌦️", nameHebrew: "חוקר העונות",   howHebrew: "צפו בכל 4 עונות השנה על הגלובוס" },
@@ -68,14 +68,14 @@ export const STICKERS: StickerDef[] = [
   { id: "st-flags",     emoji: "🚩", nameHebrew: "מלך הדגלים",     howHebrew: "השיגו מדליית זהב בחידון הדגלים" },
   { id: "st-daily",     emoji: "🔥", nameHebrew: "נחושים",         howHebrew: "סיימו את אתגר היום 3 ימים ברצף" },
   { id: "st-wonders",   emoji: "🏛️", nameHebrew: "תייר פלאים",     howHebrew: "בקרו ב-8 פלאי עולם" },
-  { id: "st-all-wonders", emoji: "🗿", nameHebrew: "מגלה כל הפלאים", howHebrew: "בקרו בכל 16 פלאי העולם" },
+  { id: "st-all-wonders", emoji: "🗿", nameHebrew: "מגלה כל הפלאים", howHebrew: `בקרו בכל ${TOTAL_LANDMARKS} פלאי העולם` },
   { id: "st-treasure",  emoji: "💎", nameHebrew: "צייד אוצרות",    howHebrew: "מצאו 20 אוצרות בפלאי העולם" },
-  { id: "st-all-treasures", emoji: "👑", nameHebrew: "אוצר לאומי", howHebrew: "מצאו את כל 48 האוצרות" },
+  { id: "st-all-treasures", emoji: "👑", nameHebrew: "אוצר לאומי", howHebrew: `מצאו את כל ${TOTAL_TREASURES} האוצרות` },
   { id: "st-letters",   emoji: "🔤", nameHebrew: "מכיר האותיות",   howHebrew: "הכירו את כל 22 האותיות" },
   { id: "st-reader",    emoji: "📖", nameHebrew: "קורא צעיר",      howHebrew: "קראו נכון 12 מילים" },
   { id: "st-math",      emoji: "➕", nameHebrew: "תלמיד מצטיין",   howHebrew: "אספו 6 כוכבים בחשבון בכיף" },
   { id: "st-memory",    emoji: "🃏", nameHebrew: "אלוף הזיכרון",   howHebrew: "נצחו 3 פעמים במשחק הזיכרון" },
-  { id: "st-musician",  emoji: "🎵", nameHebrew: "מוזיקאי קטן",    howHebrew: "נגנו את כל 3 השירים בתיבת הנגינה" },
+  { id: "st-musician",  emoji: "🎵", nameHebrew: "מוזיקאי קטן",    howHebrew: "נגנו 3 שירים בתיבת הנגינה" },
 ];
 
 export const STICKER_BY_ID = new Map(STICKERS.map((s) => [s.id, s]));
@@ -111,7 +111,7 @@ export function computeUnlockedStickers(p: ProgressSnapshot): Set<string> {
     }
   }
 
-  if (p.israelDiscovered >= TOTAL_ISRAEL_CITIES) unlocked.add("st-israel");
+  if (p.israelDiscovered >= TOTAL_ISRAEL_SITES) unlocked.add("st-israel");
   if (p.planetsDiscovered >= TOTAL_SPACE_OBJECTS) unlocked.add("st-astronaut");
   if ((p.constellationsDiscovered ?? 0) >= TOTAL_CONSTELLATIONS) unlocked.add("st-stargazer");
   if ((p.seasonsSeen ?? 0) >= 4) unlocked.add("st-seasons");

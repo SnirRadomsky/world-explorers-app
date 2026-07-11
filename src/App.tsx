@@ -24,7 +24,7 @@ import { useStickers } from "./hooks/useStickers";
 import { useLearning } from "./hooks/useLearning";
 import { CONTINENTS } from "./data/continents";
 import { COUNTRIES } from "./data/countries";
-import { TOTAL_ISRAEL_CITIES } from "./data/israelCities";
+import { TOTAL_ISRAEL_SITES } from "./data/israelCities";
 import { TOTAL_SPACE_OBJECTS } from "./data/planets";
 import { TOTAL_MARINE_CREATURES } from "./data/marineLife";
 import type { OceanId } from "./data/oceans";
@@ -170,7 +170,7 @@ export default function App() {
           total: worldMode === "continents" ? CONTINENTS.length : COUNTRIES.length,
         };
       case "israel":
-        return { count: israelDiscovery.totalDiscovered, total: TOTAL_ISRAEL_CITIES };
+        return { count: israelDiscovery.totalDiscovered, total: TOTAL_ISRAEL_SITES };
       case "space":
         return { count: planetsDiscovery.totalDiscovered, total: TOTAL_SPACE_OBJECTS };
       case "ocean":

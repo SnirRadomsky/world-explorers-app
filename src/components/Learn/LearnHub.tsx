@@ -13,6 +13,7 @@ import ClockGame from "./ClockGame";
 import MemoryGame from "./MemoryGame";
 import DrawingPad from "./DrawingPad";
 import MusicBox from "./MusicBox";
+import { TOTAL_SONGS } from "../../data/songs";
 
 export type LearnGameId = "math" | "letters" | "reading" | "clock" | "memory" | "drawing" | "music";
 
@@ -26,6 +27,7 @@ export default function LearnHub({ learning, speakHebrew, playSfx }: LearnHubPro
   const [game, setGame] = useState<LearnGameId | null>(null);
   const d = learning.data;
   const mathStars = (d.mathStars.count ?? 0) + (d.mathStars.add ?? 0) + (d.mathStars.sub ?? 0);
+  const clockStars = Object.values(d.clockModeStars ?? {}).reduce((a, b) => a + (b ?? 0), 0);
 
   const GAMES: {
     id: LearnGameId; emoji: string; label: string; sub: string; gradient: string; say: string;
@@ -33,10 +35,10 @@ export default function LearnHub({ learning, speakHebrew, playSfx }: LearnHubPro
     { id: "math",    emoji: "➕", label: "חשבון בכיף",     sub: `${mathStars} כוכבים מתוך 9`,                              gradient: "linear-gradient(135deg,#22c55e,#15803d)", say: "בואו נספור ונחשב!" },
     { id: "letters", emoji: "🔤", label: "ארץ האותיות",    sub: `הכרתם ${learning.lettersHeard.size} מתוך ${TOTAL_LETTERS} אותיות`, gradient: "linear-gradient(135deg,#3b82f6,#1e40af)", say: "בואו נכיר את האותיות והניקוד!" },
     { id: "reading", emoji: "📖", label: "מתחילים לקרוא",  sub: `קראתם ${learning.wordsRead.size} מתוך ${TOTAL_READING_WORDS} מילים`, gradient: "linear-gradient(135deg,#a855f7,#6d28d9)", say: "בואו נקרא מילים ראשונות!" },
-    { id: "clock",   emoji: "🕒", label: "מה השעה?",       sub: d.clockStars > 0 ? `הכי טוב: ${"⭐".repeat(d.clockStars)}` : "לומדים לקרוא שעון", gradient: "linear-gradient(135deg,#f97316,#c2410c)", say: "בואו נלמד מה השעה!" },
+    { id: "clock",   emoji: "🕒", label: "מה השעה?",       sub: clockStars > 0 ? `${clockStars} כוכבים מתוך 15 · 5 משחקים` : "5 משחקי שעון!", gradient: "linear-gradient(135deg,#f97316,#c2410c)", say: "בואו נלמד מה השעה!" },
     { id: "memory",  emoji: "🃏", label: "משחק הזיכרון",   sub: d.memoryWins > 0 ? `ניצחתם ${d.memoryWins} פעמים` : "מצאו את הזוגות!", gradient: "linear-gradient(135deg,#ec4899,#9d174d)", say: "בואו נמצא זוגות!" },
     { id: "drawing", emoji: "🎨", label: "סטודיו לציור",   sub: "מציירים עם האצבע",                                        gradient: "linear-gradient(135deg,#eab308,#a16207)", say: "בואו נצייר!" },
-    { id: "music",   emoji: "🎵", label: "תיבת הנגינה",    sub: `${d.songsDone.length} מתוך 3 שירים`,                       gradient: "linear-gradient(135deg,#06b6d4,#0e7490)", say: "בואו ננגן!" },
+    { id: "music",   emoji: "🎵", label: "תיבת הנגינה",    sub: `${d.songsDone.length} מתוך ${TOTAL_SONGS} שירים`,          gradient: "linear-gradient(135deg,#06b6d4,#0e7490)", say: "בואו ננגן!" },
   ];
 
   if (game) {

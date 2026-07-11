@@ -1,4 +1,4 @@
-// פלאי העולם — rich, hand-built 3D sites for the 16 famous landmarks.
+// פלאי העולם — rich, hand-built 3D sites for the 20 famous landmarks.
 // Every site is assembled from primitives + painted details (no assets),
 // sized for a round stage of radius ~9, ground at y=0. Animatable parts get
 // names ("aurora0", "penguin0", "spinner"...) that LandmarkScene drives.
@@ -229,7 +229,7 @@ function reindeer(): THREE.Group {
   return g;
 }
 
-// ─── The 16 site builders ─────────────────────────────────────────────────────
+// ─── The site builders (one per landmark) ─────────────────────────────────────
 
 type SiteBuilder = () => THREE.Group;
 
@@ -1190,6 +1190,285 @@ const sites: Record<string, SiteBuilder> = {
     slider.rotation.y = -0.7;
     slider.name = "penguin7";
     g.add(slider);
+    return g;
+  },
+
+  petra() {
+    const g = new THREE.Group();
+    const rose = m("#c47a6a", { rough: 0.9 });
+    const roseDark = m("#a05a4c", { rough: 0.95 });
+    // the Siq: two towering canyon walls framing the treasury
+    for (const s of [1, -1]) {
+      const cliff = box(2.6, 7.2, 3.4, roseDark);
+      cliff.position.set(s * 4.1, 3.6, -3.4);
+      cliff.rotation.y = s * -0.18;
+      g.add(cliff);
+      const cliffTop = ell(1.5, 0.7, 1.7, roseDark);
+      cliffTop.position.set(s * 4.0, 7.3, -3.4);
+      g.add(cliffTop);
+    }
+    // Al-Khazneh facade carved into the rock
+    const slab = box(4.6, 5.6, 0.7, rose);
+    slab.position.set(0, 2.8, -3.9);
+    g.add(slab);
+    // dark doorway
+    const door = box(1.0, 1.7, 0.15, m("#3f2a24"));
+    door.position.set(0, 0.85, -3.5);
+    g.add(door);
+    // six columns
+    for (let i = 0; i < 6; i++) {
+      const col = cyl(0.17, 0.2, 2.6, m("#d18d7c", { rough: 0.8 }), 8);
+      col.position.set(-1.9 + i * 0.76, 1.3, -3.45);
+      g.add(col);
+    }
+    // pediment + the famous urn on top
+    const pediment = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 4.4, 3), m("#d18d7c"));
+    pediment.rotation.z = Math.PI / 2;
+    pediment.rotation.y = Math.PI / 2;
+    pediment.position.set(0, 3.1, -3.5);
+    g.add(pediment);
+    const tholos = cyl(0.5, 0.5, 1.2, m("#d18d7c"), 10);
+    tholos.position.set(0, 4.35, -3.55);
+    g.add(tholos);
+    const urn = sph(0.32, m("#b96b5b"), 8);
+    urn.scale.y = 1.35;
+    urn.position.set(0, 5.25, -3.55);
+    g.add(urn);
+    // a camel caravan resting on the sand
+    const camel = buildAnimal("camel");
+    camel.scale.multiplyScalar(0.8);
+    camel.position.set(2.6, 0, 1.6);
+    camel.rotation.y = -0.9;
+    g.add(camel);
+    const camel2 = buildAnimal("camel");
+    camel2.scale.multiplyScalar(0.65);
+    camel2.position.set(3.6, 0, 0.5);
+    camel2.rotation.y = -1.3;
+    g.add(camel2);
+    // scattered desert rocks
+    const rnd = rngFor(88);
+    for (let i = 0; i < 8; i++) {
+      const rock = ell(0.3 + rnd() * 0.3, 0.2 + rnd() * 0.15, 0.25, roseDark, 7);
+      rock.position.set((rnd() - 0.5) * 10, 0.12, 1 + rnd() * 3.4);
+      g.add(rock);
+    }
+    return g;
+  },
+
+  neuschwanstein() {
+    const g = new THREE.Group();
+    // alpine peaks behind
+    for (const [x, z, r, h] of [[-3.6, -5.4, 2.4, 4.6], [3.4, -6.0, 3.0, 5.6]] as [number, number, number, number][]) {
+      const peak = cone(r, h, m("#7d8aa0"), 8);
+      peak.position.set(x, h / 2, z);
+      g.add(peak);
+      const cap = cone(r * 0.36, h * 0.24, m("#f6f8fb", { rough: 0.4 }), 8);
+      cap.position.set(x, h * 0.86, z);
+      g.add(cap);
+    }
+    // the castle hill
+    const hill = cyl(2.6, 3.6, 1.9, m("#5e7d4a"), 12);
+    hill.position.y = 0.95;
+    g.add(hill);
+    const white = m("#f3f2ec", { rough: 0.55, flat: false });
+    const blue = m("#3b5b8c", { rough: 0.6 });
+    // main hall
+    const hall = box(2.5, 1.9, 1.2, white);
+    hall.position.set(0, 2.85, -0.2);
+    g.add(hall);
+    const hallRoof = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 2.6, 3), blue);
+    hallRoof.rotation.z = Math.PI / 2;
+    hallRoof.position.set(0, 4.1, -0.2);
+    g.add(hallRoof);
+    // towers with steep blue cone roofs
+    const tower = (x: number, z: number, h: number, r: number) => {
+      const t = cyl(r, r * 1.08, h, white, 10);
+      t.position.set(x, 1.9 + h / 2, z);
+      g.add(t);
+      const roof = cone(r * 1.35, h * 0.62, blue, 10);
+      roof.position.set(x, 1.9 + h + h * 0.3, z);
+      g.add(roof);
+      // little windows
+      for (let wy = 0; wy < 2; wy++) {
+        const win = box(0.09, 0.16, 0.02, m("#2b3a52"));
+        win.position.set(x, 2.5 + wy * 0.7, z + r + 0.01);
+        g.add(win);
+      }
+    };
+    tower(-1.35, 0.35, 2.5, 0.34);
+    tower(1.35, 0.35, 2.5, 0.34);
+    tower(-0.75, -0.9, 3.3, 0.28);
+    tower(0.75, -0.9, 3.3, 0.28);
+    tower(0, 0.75, 1.9, 0.3); // gatehouse turret
+    // gatehouse
+    const gate = box(1.1, 1.0, 0.7, m("#c9553e", { rough: 0.7 }));
+    gate.position.set(0, 2.4, 0.75);
+    g.add(gate);
+    const gateDoor = box(0.4, 0.55, 0.1, m("#3f2a24"));
+    gateDoor.position.set(0, 2.2, 1.12);
+    g.add(gateDoor);
+    // pine forest on the slopes
+    const rnd = rngFor(214);
+    for (let i = 0; i < 10; i++) {
+      const a = rnd() * Math.PI * 2;
+      const rr = 3.6 + rnd() * 1.6;
+      const s = 0.7 + rnd() * 0.5;
+      const tr = new THREE.Group();
+      for (let l = 0; l < 3; l++) {
+        const layer = cone(0.5 * s - l * 0.12 * s, 0.55 * s, m("#2d5a44"), 7);
+        layer.position.y = 0.45 * s + l * 0.38 * s;
+        tr.add(layer);
+      }
+      tr.position.set(Math.cos(a) * rr, 0, Math.sin(a) * rr * 0.7 + 0.8);
+      g.add(tr);
+    }
+    // the swan lake
+    const lake = new THREE.Mesh(new THREE.CircleGeometry(1.5, 18), m("#4a9fd8", { rough: 0.15, metal: 0.2 }));
+    lake.rotation.x = -Math.PI / 2;
+    lake.position.set(3.4, 0.04, 2.6);
+    g.add(lake);
+    const swan = dove("#fdfdfb");
+    swan.scale.multiplyScalar(1.4);
+    swan.position.set(3.3, 0.06, 2.5);
+    swan.name = "boat"; // reuse the gentle bobbing animation
+    g.add(swan);
+    return g;
+  },
+
+  burj() {
+    const g = new THREE.Group();
+    const glass = m("#9fb6ce", { rough: 0.22, metal: 0.6, flat: false });
+    // tiered spire — each tier a slimmer cylinder
+    const tiers: [number, number][] = [
+      [1.05, 1.6], [0.88, 1.5], [0.72, 1.4], [0.56, 1.3], [0.42, 1.2], [0.3, 1.0], [0.19, 0.9],
+    ];
+    let y = 0;
+    for (const [r, h] of tiers) {
+      const tier = cyl(r * 0.92, r, h, glass, 12);
+      tier.position.y = y + h / 2;
+      g.add(tier);
+      y += h;
+    }
+    const needle = cyl(0.025, 0.07, 1.5, m("#dfe8f2", { metal: 0.7, rough: 0.3 }), 6);
+    needle.position.y = y + 0.75;
+    g.add(needle);
+    const beacon = sph(0.09, m("#fde68a", { emissive: "#fbbf24", emissiveIntensity: 1.6 }), 6);
+    beacon.position.y = y + 1.55;
+    beacon.name = "beacon";
+    g.add(beacon);
+    // lit window bands
+    for (let i = 0; i < 12; i++) {
+      const band = new THREE.Mesh(
+        new THREE.TorusGeometry(0.95 - i * 0.065, 0.015, 5, 24),
+        m("#ffd9a0", { emissive: "#ffb347", emissiveIntensity: 0.8 })
+      );
+      band.rotation.x = Math.PI / 2;
+      band.position.y = 0.6 + i * 0.72;
+      g.add(band);
+    }
+    // the dancing fountain pool
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(2.6, 24), m("#3a7cb8", { rough: 0.15, metal: 0.2 }));
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(0, 0.03, 3.6);
+    g.add(pool);
+    for (let i = 0; i < 5; i++) {
+      const jet = cyl(0.035, 0.05, 0.9 + (i % 3) * 0.35, m("#cfe8fa", { opacity: 0.75, flat: false }), 6);
+      jet.position.set(-1.4 + i * 0.7, 0.5 + (i % 3) * 0.18, 3.6);
+      g.add(jet);
+    }
+    // downtown skyline
+    const rnd = rngFor(555);
+    for (let i = 0; i < 9; i++) {
+      const h = 0.7 + rnd() * 1.4;
+      const bld = box(0.5 + rnd() * 0.3, h, 0.5, m(i % 2 ? "#8fa3ba" : "#a8bccf", { rough: 0.4, metal: 0.3 }));
+      const a = rnd() * Math.PI * 2;
+      const rr = 3.4 + rnd() * 1.8;
+      bld.position.set(Math.cos(a) * rr, h / 2, Math.sin(a) * rr * 0.8 - 1.2);
+      g.add(bld);
+    }
+    // palms along the plaza
+    for (const [x, z] of [[-2.9, 2.6], [2.9, 2.6], [-3.6, 0.6], [3.6, 0.6]]) {
+      const p = palmTree(1.5);
+      p.position.set(x, 0, z);
+      g.add(p);
+    }
+    return g;
+  },
+
+  niagara() {
+    const g = new THREE.Group();
+    // the river above the falls
+    const upper = new THREE.Mesh(
+      new THREE.CylinderGeometry(4.6, 4.6, 0.35, 26, 1, false, Math.PI * 0.15, Math.PI * 0.7),
+      m("#3a86c8", { rough: 0.2, metal: 0.15, side: THREE.DoubleSide })
+    );
+    upper.position.set(0, 2.4, -4.2);
+    g.add(upper);
+    // horseshoe cliff
+    const cliff = new THREE.Mesh(
+      new THREE.CylinderGeometry(4.4, 4.6, 2.6, 26, 1, true, Math.PI * 0.15, Math.PI * 0.7),
+      m("#6b6455", { rough: 0.95, side: THREE.DoubleSide })
+    );
+    cliff.position.set(0, 1.3, -4.2);
+    g.add(cliff);
+    // the falling water curtain — bright blue with white streaks
+    const curtain = new THREE.Mesh(
+      new THREE.CylinderGeometry(4.55, 4.72, 2.55, 26, 1, true, Math.PI * 0.18, Math.PI * 0.64),
+      m("#7cc4ec", { rough: 0.25, opacity: 0.92, side: THREE.DoubleSide, flat: false })
+    );
+    curtain.position.set(0, 1.3, -4.2);
+    g.add(curtain);
+    const rnd = rngFor(303);
+    for (let i = 0; i < 12; i++) {
+      const a = Math.PI * (0.22 + rnd() * 0.56);
+      const streak = box(0.09, 2.3, 0.03, m("#eaf6fd", { opacity: 0.85, flat: false }));
+      streak.position.set(Math.sin(a) * 4.66, 1.35, -4.2 + Math.cos(a) * 4.66);
+      streak.rotation.y = -a;
+      g.add(streak);
+    }
+    // the plunge pool + rising mist (named → drifts)
+    const poolN = new THREE.Mesh(new THREE.CircleGeometry(5.2, 28), m("#2e6ea6", { rough: 0.2, metal: 0.15 }));
+    poolN.rotation.x = -Math.PI / 2;
+    poolN.position.set(0, 0.02, 0.6);
+    g.add(poolN);
+    for (const [x, y2, z, s] of [[-1.6, 1.1, -2.6, 1.2], [1.4, 1.7, -3.0, 1.0], [0, 0.7, -2.0, 1.5]] as [number, number, number, number][]) {
+      const mist = ell(s, s * 0.4, s * 0.6, m("#ffffff", { opacity: 0.5, flat: false }));
+      mist.position.set(x, y2, z);
+      mist.name = `mist${x > 0 ? 1 : 0}`;
+      g.add(mist);
+    }
+    // rainbow over the gorge — three nested arcs
+    const rainbowCols = ["#ef4444", "#facc15", "#22c55e"];
+    rainbowCols.forEach((c, i) => {
+      const arc = new THREE.Mesh(
+        new THREE.TorusGeometry(2.5 - i * 0.14, 0.06, 6, 24, Math.PI),
+        m(c, { opacity: 0.65, flat: false })
+      );
+      arc.position.set(0.4, 0.6, -1.2);
+      arc.rotation.y = 0.25;
+      g.add(arc);
+    });
+    // the little mist boat (named → bobs)
+    const boat = new THREE.Group();
+    const hull = box(0.95, 0.2, 0.4, m("#dc2626"));
+    hull.position.y = 0.14;
+    boat.add(hull);
+    const deck = box(0.6, 0.22, 0.3, m("#f4f6fb"));
+    deck.position.y = 0.35;
+    boat.add(deck);
+    const funnel = cyl(0.05, 0.06, 0.2, m("#334155"), 6);
+    funnel.position.set(-0.1, 0.55, 0);
+    boat.add(funnel);
+    boat.position.set(1.8, 0.02, 1.6);
+    boat.rotation.y = 2.4;
+    boat.name = "boat";
+    g.add(boat);
+    // forested banks
+    for (const [x, z, s] of [[-4.2, 1.6, 1.0], [-3.4, 2.8, 0.8], [4.3, 1.8, 0.95], [3.5, 3.0, 0.75]] as [number, number, number][]) {
+      const t = roundTree("#3f7d46", 0.9 * s, 0.5 * s);
+      t.position.set(x, 0, z);
+      g.add(t);
+    }
     return g;
   },
 };

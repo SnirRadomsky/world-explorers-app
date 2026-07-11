@@ -3,9 +3,13 @@ import { geoMercator, geoPath, type GeoPermissibleObjects } from "d3-geo";
 import {
   ISRAEL_CITIES,
   ISRAEL_CITIES_BY_ID,
+  ISRAEL_PLACES,
+  ISRAEL_PLACE_BY_ID,
   ISRAEL_DISTRICTS,
   DISTRICT_BY_ID,
   TOTAL_ISRAEL_CITIES,
+  TOTAL_ISRAEL_PLACES,
+  TOTAL_ISRAEL_SITES,
 } from "../../data/israelCities";
 import NameRevealBubble from "./NameRevealBubble";
 import ConfettiEffect from "../Overlays/ConfettiEffect";
@@ -109,6 +113,17 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew, play
     return map;
   }, [projection]);
 
+  // ...and the special attraction pins
+  const placePoints = useMemo(() => {
+    if (!projection) return new Map<string, [number, number]>();
+    const map = new Map<string, [number, number]>();
+    for (const place of ISRAEL_PLACES) {
+      const pt = projection(place.coordinates);
+      if (pt) map.set(place.id, pt as [number, number]);
+    }
+    return map;
+  }, [projection]);
+
   // Group cities by district
   const citiesByDistrict = useMemo(() => {
     const map = new Map<string, typeof ISRAEL_CITIES>();
@@ -119,6 +134,25 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew, play
     return map;
   }, []);
 
+  // Milestone checks shared by cities and places.
+  const checkMilestones = useCallback(
+    (justDiscoveredCity: boolean) => {
+      const cityCount = ISRAEL_CITIES.filter((c) => discoveredSet.has(c.id)).length + (justDiscoveredCity ? 1 : 0);
+      if (discoveredSet.size + 1 === TOTAL_ISRAEL_SITES) {
+        setTimeout(() => {
+          setMilestoneMessage("גילית את כל ערי ישראל וכל האתרים המיוחדים! 🇮🇱🏆");
+          setMilestoneOpen(true);
+        }, 1500);
+      } else if (justDiscoveredCity && cityCount === TOTAL_ISRAEL_CITIES) {
+        setTimeout(() => {
+          setMilestoneMessage("גילית את כל ערי ישראל! 🇮🇱✨");
+          setMilestoneOpen(true);
+        }, 1500);
+      }
+    },
+    [discoveredSet]
+  );
+
   // Shared discovery trigger for a chosen city.
   const discoverCity = useCallback(
     (cityId: string, event: React.MouseEvent) => {
@@ -128,7 +162,11 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew, play
       const color = district?.color ?? "#3b82f6";
 
       playSfx?.("pop");
-      setActiveBubble({ name: city.nameHebrew, subName: district?.nameHebrew, color });
+      setActiveBubble({
+        name: city.emoji ? `${city.emoji} ${city.nameHebrew}` : city.nameHebrew,
+        subName: district?.nameHebrew,
+        color,
+      });
       setConfettiOrigin({
         x: event.clientX / window.innerWidth,
         y: event.clientY / window.innerHeight,
@@ -139,19 +177,47 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew, play
         setConfettiTrigger((p) => p + 1);
         playSfx?.("chime");
       }
-      speakHebrew(city.nameHebrew);
+      // first discovery of a city with a fun fact → hear the fact too
+      speakHebrew(isNew && city.factHebrew ? `${city.nameHebrew}. ${city.factHebrew}` : city.nameHebrew);
 
       if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
       dismissTimerRef.current = setTimeout(() => setActiveBubble(null), 2800);
 
-      if (isNew && discoveredSet.size + 1 === TOTAL_ISRAEL_CITIES) {
-        setTimeout(() => {
-          setMilestoneMessage("גילית את כל ערי ישראל! 🇮🇱✨");
-          setMilestoneOpen(true);
-        }, 1500);
-      }
+      if (isNew) checkMilestones(true);
     },
-    [onDiscover, speakHebrew, discoveredSet, playSfx]
+    [onDiscover, speakHebrew, playSfx, checkMilestones]
+  );
+
+  // Discovery trigger for a special attraction (golden star pin).
+  const discoverPlace = useCallback(
+    (placeId: string, event: React.MouseEvent) => {
+      const place = ISRAEL_PLACE_BY_ID.get(placeId);
+      if (!place) return;
+
+      playSfx?.("pop");
+      setActiveBubble({
+        name: `${place.emoji} ${place.nameHebrew}`,
+        subName: "אתר מיוחד",
+        color: "#d97706",
+      });
+      setConfettiOrigin({
+        x: event.clientX / window.innerWidth,
+        y: event.clientY / window.innerHeight,
+      });
+
+      const isNew = onDiscover(placeId);
+      if (isNew) {
+        setConfettiTrigger((p) => p + 1);
+        playSfx?.("chime");
+      }
+      speakHebrew(isNew ? `${place.nameHebrew}. ${place.factHebrew}` : place.nameHebrew);
+
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = setTimeout(() => setActiveBubble(null), 3600);
+
+      if (isNew) checkMilestones(false);
+    },
+    [onDiscover, speakHebrew, playSfx, checkMilestones]
   );
 
   /**
@@ -166,18 +232,26 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew, play
         pt[1] * scale + pan.y,
       ];
 
-      // 1) Nearest city anywhere within the tap radius wins.
-      let nearestAny: { id: string; dist: number } | null = null;
+      // 1) Nearest city or attraction anywhere within the tap radius wins.
+      let nearestAny: { id: string; kind: "city" | "place"; dist: number } | null = null;
       for (const c of ISRAEL_CITIES) {
         const pt = cityPoints.get(c.id);
         if (!pt) continue;
         const [tx, ty] = toScreen(pt);
         const dist = Math.hypot(clickX - tx, clickY - ty);
-        if (!nearestAny || dist < nearestAny.dist) nearestAny = { id: c.id, dist };
+        if (!nearestAny || dist < nearestAny.dist) nearestAny = { id: c.id, kind: "city", dist };
+      }
+      for (const p of ISRAEL_PLACES) {
+        const pt = placePoints.get(p.id);
+        if (!pt) continue;
+        const [tx, ty] = toScreen(pt);
+        const dist = Math.hypot(clickX - tx, clickY - ty);
+        if (!nearestAny || dist < nearestAny.dist) nearestAny = { id: p.id, kind: "place", dist };
       }
       const radius = TAP_RADIUS_PX * (scale < 1.5 ? 1.15 : 1); // a bit more forgiving when zoomed out
       if (nearestAny && nearestAny.dist <= radius) {
-        discoverCity(nearestAny.id, event);
+        if (nearestAny.kind === "place") discoverPlace(nearestAny.id, event);
+        else discoverCity(nearestAny.id, event);
         return;
       }
 
@@ -200,7 +274,7 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew, play
       }
       if (nearest) discoverCity(nearest.id, event);
     },
-    [citiesByDistrict, cityPoints, discoveredSet, scale, pan, discoverCity]
+    [citiesByDistrict, cityPoints, placePoints, discoveredSet, scale, pan, discoverCity, discoverPlace]
   );
 
   // Direct city click (dot)
@@ -335,6 +409,7 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew, play
 
   const transform = `translate(${pan.x},${pan.y}) scale(${scale})`;
   const totalDiscovered = ISRAEL_CITIES.filter((c) => discoveredSet.has(c.id)).length;
+  const placesDiscovered = ISRAEL_PLACES.filter((p) => discoveredSet.has(p.id)).length;
   const pathGen = projection ? geoPath(projection) : null;
 
   return (
@@ -443,6 +518,62 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew, play
               </g>
             );
           })}
+
+          {/* Special attractions — golden star pins */}
+          {geoData && pathGen && ISRAEL_PLACES.map((place) => {
+            const pt = placePoints.get(place.id);
+            if (!pt) return null;
+            const isFound = discoveredSet.has(place.id);
+            const r = 7 / scale;
+            const fs = 11 / scale;
+
+            return (
+              <g
+                key={place.id}
+                data-testid={`israel-place-${place.id}`}
+                onClick={(e) => {
+                  if (totalMovement.current > 8) return;
+                  e.stopPropagation();
+                  discoverPlace(place.id, e);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <circle
+                  cx={pt[0]}
+                  cy={pt[1]}
+                  r={r}
+                  fill={isFound ? "#f59e0b" : "#fffbeb"}
+                  stroke="#d97706"
+                  strokeWidth={2 / scale}
+                  style={{ filter: "drop-shadow(0 1px 3px rgba(180,83,9,0.55))" }}
+                />
+                <text
+                  x={pt[0]}
+                  y={pt[1] + 3.4 / scale}
+                  textAnchor="middle"
+                  style={{ fontSize: `${9 / scale}px`, pointerEvents: "none" }}
+                >
+                  {isFound ? place.emoji : "⭐"}
+                </text>
+                <text
+                  x={pt[0]}
+                  y={pt[1] - 10 / scale}
+                  textAnchor="middle"
+                  style={{
+                    fontSize: `${fs}px`,
+                    fontFamily: "Heebo, sans-serif",
+                    fontWeight: 800,
+                    fill: "#92400e",
+                    filter:
+                      "drop-shadow(0 0 2px rgba(255,255,255,1)) drop-shadow(0 0 3px rgba(255,255,255,1))",
+                    pointerEvents: "none",
+                  }}
+                >
+                  {isFound ? place.nameHebrew : "❓"}
+                </text>
+              </g>
+            );
+          })}
         </g>
       </svg>
 
@@ -457,6 +588,9 @@ export default function IsraelMap({ discoveredSet, onDiscover, speakHebrew, play
         }}
       >
         🇮🇱 ערי ישראל: {totalDiscovered} / {TOTAL_ISRAEL_CITIES}
+        <span style={{ color: "#b45309", marginRight: 8 }}>
+          ⭐ אתרים: {placesDiscovered} / {TOTAL_ISRAEL_PLACES}
+        </span>
       </div>
 
       {/* Zoom controls */}

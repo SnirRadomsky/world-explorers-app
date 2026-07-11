@@ -4,10 +4,13 @@
 import { test, expect, type Page } from "@playwright/test";
 import { COUNTRIES } from "../src/data/countries";
 import { CONTINENTS } from "../src/data/continents";
-import { PLANETS } from "../src/data/planets";
+import { PLANETS, TOTAL_SPACE_OBJECTS } from "../src/data/planets";
+import { TOTAL_ISRAEL_CITIES } from "../src/data/israelCities";
+import { TOTAL_LANDMARKS } from "../src/data/landmarks";
 
 const N_COUNTRIES = COUNTRIES.length;
 const N_CONTINENTS = CONTINENTS.length;
+const N_ISRAEL = TOTAL_ISRAEL_CITIES;
 
 // Hebrew name → planet id (for answering quiz questions).
 const PLANET_NAMES: Record<string, string> = Object.fromEntries(
@@ -138,10 +141,11 @@ test("solar system: rocket flies, sun is tappable, planet card opens, back to Ea
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 
   await expect(page.getByText("השמש", { exact: true })).toBeVisible({ timeout: 5_000 });
-  await expect(page.getByText(/מתוך 14 בחלל/)).toContainText("1 מתוך");
+  await expect(page.getByText(new RegExp(`מתוך ${TOTAL_SPACE_OBJECTS} בחלל`))).toContainText("1 מתוך");
 
-  // Planet card via עוד!
-  await page.getByRole("button", { name: "עוד! 👀" }).click();
+  // Planet card via עוד! — force:true because the bubble animates gently and
+  // auto-dismisses; the stability check can starve under software WebGL.
+  await page.getByRole("button", { name: "עוד! 👀" }).click({ force: true });
   await expect(page.getByText(/בלעדיה לא היו חיים/)).toBeVisible();
   await page.getByRole("button", { name: "סגירה" }).click();
 
@@ -174,19 +178,30 @@ test("Israel map: tapping a city discovers it and the counter ticks", async ({ p
   await gotoHome(page);
   await page.getByTestId("home-israel").click();
 
-  await expect(page.getByText(/ערי ישראל: 0 \/ 59/)).toBeVisible();
+  await expect(page.getByText(new RegExp(`ערי ישראל: 0 / ${N_ISRAEL}`))).toBeVisible();
   const cityDot = page.locator("svg g > circle").first();
   await expect(cityDot).toBeVisible();
   await cityDot.dispatchEvent("click");
 
-  await expect(page.getByText(/ערי ישראל: 1 \/ 59/)).toBeVisible();
+  await expect(page.getByText(new RegExp(`ערי ישראל: 1 / ${N_ISRAEL}`))).toBeVisible();
+});
+
+test("Israel map: a golden attraction pin discovers a special place", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-israel").click();
+
+  await expect(page.getByText(/אתרים: 0 \/ 10/)).toBeVisible();
+  await page.getByTestId("israel-place-place-kinneret").dispatchEvent("click");
+
+  await expect(page.getByText(/אתרים: 1 \/ 10/)).toBeVisible();
+  await expect(page.getByText(/הכנרת/).first()).toBeVisible();
 });
 
 test("parental gate guards reset: wrong answer keeps progress, correct answer resets", async ({ page }) => {
   await gotoHome(page);
   await page.getByTestId("home-israel").click();
   await page.locator("svg g > circle").first().dispatchEvent("click");
-  await expect(page.getByText(/ערי ישראל: 1 \/ 59/)).toBeVisible();
+  await expect(page.getByText(new RegExp(`ערי ישראל: 1 / ${N_ISRAEL}`))).toBeVisible();
 
   // Wrong answer → closes, progress kept.
   await page.getByTestId("reset-button").click();
@@ -194,7 +209,7 @@ test("parental gate guards reset: wrong answer keeps progress, correct answer re
   await page.getByTestId("gate-key-1").click();
   await page.getByTestId("gate-key-1").click(); // 11 is never a product of (3..8)×(4..9)
   await expect(page.getByTestId("gate-question")).toHaveCount(0);
-  await expect(page.getByText(/ערי ישראל: 1 \/ 59/)).toBeVisible();
+  await expect(page.getByText(new RegExp(`ערי ישראל: 1 / ${N_ISRAEL}`))).toBeVisible();
 
   // Correct answer → resets.
   await page.getByTestId("reset-button").click();
@@ -205,7 +220,7 @@ test("parental gate guards reset: wrong answer keeps progress, correct answer re
   for (const digit of answer) {
     await page.getByTestId(`gate-key-${digit}`).click();
   }
-  await expect(page.getByText(/ערי ישראל: 0 \/ 59/)).toBeVisible();
+  await expect(page.getByText(new RegExp(`ערי ישראל: 0 / ${N_ISRAEL}`))).toBeVisible();
 });
 
 test("sticker album shows locked stickers and the counter", async ({ page }) => {
@@ -320,7 +335,7 @@ test("landmarks: gallery opens, visiting the Kotel renders the 3D site and marks
   await gotoHome(page);
   await page.getByTestId("home-landmarks").click();
   await expect(page.getByText("פלאי העולם").first()).toBeVisible();
-  await expect(page.getByText(/ביקרתם ב-0 מתוך 16/)).toBeVisible();
+  await expect(page.getByText(new RegExp(`ביקרתם ב-0 מתוך ${TOTAL_LANDMARKS}`))).toBeVisible();
 
   await page.getByTestId("landmark-card-kotel").click();
   const container = page.getByTestId("landmark-container");
@@ -330,7 +345,7 @@ test("landmarks: gallery opens, visiting the Kotel renders the 3D site and marks
 
   // back to the gallery — the visit was recorded
   await page.getByTestId("landmark-back").click();
-  await expect(page.getByText(/ביקרתם ב-1 מתוך 16/)).toBeVisible();
+  await expect(page.getByText(new RegExp(`ביקרתם ב-1 מתוך ${TOTAL_LANDMARKS}`))).toBeVisible();
   await expect(page.getByTestId("landmark-card-kotel")).toContainText("ביקרנו");
 });
 
@@ -362,6 +377,17 @@ test("globe: the gold pin opens the wonder card and flies into the visit", async
   await page.getByTestId("visit-landmark").click();
   await expect(page.getByTestId("landmark-container").locator("canvas")).toBeVisible({ timeout: 20_000 });
   await page.getByTestId("landmark-back").click();
+});
+
+test("landmarks: the new Petra site renders its 3D scene with treasures", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-landmarks").click();
+  await page.getByTestId("landmark-card-petra").click();
+  const container = page.getByTestId("landmark-container");
+  await expect(container.locator("canvas")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("treasure-counter")).toContainText("0/3");
+  await page.getByTestId("landmark-back").click();
+  await expect(page.getByTestId("landmark-card-petra")).toContainText("ביקרנו");
 });
 
 // ─── 4.0: the little school ───────────────────────────────────────────────────
@@ -437,6 +463,61 @@ test("clock game: reads the hands and answers correctly", async ({ page }) => {
   await expect(page.getByTestId("clock-result")).toBeVisible({ timeout: 5_000 });
 });
 
+test("clock match game: pairs digital and analog clocks to the medal modal", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-clock").click();
+  await page.getByTestId("clock-mode-match").click();
+
+  for (let i = 0; i < 6; i++) {
+    const target = page.getByTestId("clock-match-target");
+    await expect(target).toBeVisible();
+    const hour = await target.getAttribute("data-hour");
+    const minutes = await target.getAttribute("data-minutes");
+    // find the option carrying the same time
+    for (let o = 0; o < 4; o++) {
+      const opt = page.getByTestId(`clock-match-opt-${o}`);
+      if ((await opt.getAttribute("data-hour")) === hour && (await opt.getAttribute("data-minutes")) === minutes) {
+        await opt.click();
+        break;
+      }
+    }
+    await page.waitForTimeout(1450);
+  }
+  await expect(page.getByTestId("clock-result")).toBeVisible({ timeout: 5_000 });
+});
+
+test("clock set game: quick buttons steer the hands to the target time", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-clock").click();
+  await page.getByTestId("clock-mode-set").click();
+
+  for (let i = 0; i < 5; i++) {
+    const target = page.getByTestId("clock-set-target");
+    await expect(target).toBeVisible();
+    const hour = Number(await target.getAttribute("data-hour"));
+    const minutes = Number(await target.getAttribute("data-minutes"));
+    // each round starts at 12:00 → advance deterministically
+    for (let h = 0; h < hour % 12; h++) await page.getByTestId("clock-set-plus-hour").click();
+    for (let q = 0; q < minutes / 15; q++) await page.getByTestId("clock-set-plus-quarter").click();
+    await page.getByTestId("clock-set-check").click();
+    await page.waitForTimeout(1550);
+  }
+  await expect(page.getByTestId("clock-result")).toBeVisible({ timeout: 5_000 });
+});
+
+test("clock read game: quarter-hour level renders quarter times", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-clock").click();
+  await page.getByTestId("clock-level-quarter").click();
+  const face = page.getByTestId("clock-face");
+  await expect(face).toBeVisible();
+  // options grid appears with 4 choices
+  expect(await page.locator('[data-testid^="clock-opt-"]').count()).toBe(4);
+});
+
 test("memory game: flipping two cards counts a move", async ({ page }) => {
   await gotoHome(page);
   await page.getByTestId("home-learn").click();
@@ -455,6 +536,42 @@ test("music box: keys play and a song can start", async ({ page }) => {
   await page.getByTestId("music-key-4").click();
   await page.getByTestId("music-song-yonatan").click();
   await expect(page.getByTestId("music-progress")).toBeVisible();
+  // the note sheet lights up with the song's notes
+  await expect(page.getByTestId("music-sheet")).toBeVisible();
+  // a new song and the full-listen button exist
+  await expect(page.getByTestId("music-song-ode")).toBeVisible();
+  await expect(page.getByTestId("music-listen")).toBeVisible();
+});
+
+test("music box: instruments switch and the echo game starts", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-music").click();
+
+  // switch instrument (plays a preview note, stays selected)
+  await page.getByTestId("music-instrument-piano").click();
+  await page.getByTestId("music-key-2").click();
+
+  // echo game
+  await page.getByTestId("music-mode-echo").click();
+  await expect(page.getByTestId("echo-status")).toBeVisible();
+  await page.getByTestId("echo-start").click();
+  await expect(page.getByTestId("echo-status")).toContainText("הקשיבו", { timeout: 5_000 });
+});
+
+test("music box: the recording studio records and plays back", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-learn").click();
+  await page.getByTestId("learn-tile-music").click();
+  await page.getByTestId("music-mode-record").click();
+
+  await page.getByTestId("record-toggle").click();   // start
+  await page.getByTestId("music-key-1").click();
+  await page.getByTestId("music-key-3").click();
+  await page.getByTestId("music-key-5").click();
+  await page.getByTestId("record-toggle").click();   // stop
+  await expect(page.getByText(/הוקלטו 3 צלילים/)).toBeVisible();
+  await page.getByTestId("record-play").click();
 });
 
 test("drawing pad: draws a stroke and clears", async ({ page }) => {

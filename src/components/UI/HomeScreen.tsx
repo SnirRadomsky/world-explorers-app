@@ -1,6 +1,6 @@
 import { CONTINENTS } from "../../data/continents";
 import { COUNTRIES } from "../../data/countries";
-import { TOTAL_ISRAEL_CITIES } from "../../data/israelCities";
+import { TOTAL_ISRAEL_SITES } from "../../data/israelCities";
 import { TOTAL_SPACE_OBJECTS } from "../../data/planets";
 import { TOTAL_MARINE_CREATURES } from "../../data/marineLife";
 import { TOTAL_LANDMARKS } from "../../data/landmarks";
@@ -208,7 +208,7 @@ export default function HomeScreen({
         <Tile
           emoji="🇮🇱"
           label="ערי ישראל"
-          sub={`${discoveredPerMode.israel} מתוך ${TOTAL_ISRAEL_CITIES} גולו`}
+          sub={`${discoveredPerMode.israel} מתוך ${TOTAL_ISRAEL_SITES} גולו`}
           gradient="linear-gradient(135deg,#f97316,#ea580c)"
           shadow="0 8px 24px rgba(249,115,22,0.45)"
           onClick={() => onSelect("israel")}

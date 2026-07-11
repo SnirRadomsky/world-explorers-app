@@ -2,8 +2,9 @@ import { describe, it, expect } from "vitest";
 import { computeUnlockedStickers, levelFor, STICKERS, type ProgressSnapshot } from "./stickers";
 import { CONTINENTS } from "../data/continents";
 import { COUNTRIES } from "../data/countries";
-import { TOTAL_ISRAEL_CITIES } from "../data/israelCities";
+import { TOTAL_ISRAEL_SITES } from "../data/israelCities";
 import { TOTAL_SPACE_OBJECTS } from "../data/planets";
+import { TOTAL_LANDMARKS, TOTAL_TREASURES } from "../data/landmarks";
 
 function empty(): ProgressSnapshot {
   return {
@@ -30,8 +31,8 @@ describe("computeUnlockedStickers", () => {
     expect(u.has("st-all-wonders")).toBe(false);
     expect(u.has("st-treasure")).toBe(true);
     expect(u.has("st-all-treasures")).toBe(false);
-    p.landmarksVisited = 16;
-    p.treasuresFound = 48;
+    p.landmarksVisited = TOTAL_LANDMARKS;
+    p.treasuresFound = TOTAL_TREASURES;
     u = computeUnlockedStickers(p);
     expect(u.has("st-all-wonders")).toBe(true);
     expect(u.has("st-all-treasures")).toBe(true);
@@ -97,7 +98,7 @@ describe("computeUnlockedStickers", () => {
 
   it("israel / astronaut / linguist / quiz stickers", () => {
     const p = empty();
-    p.israelDiscovered = TOTAL_ISRAEL_CITIES;
+    p.israelDiscovered = TOTAL_ISRAEL_SITES;
     p.planetsDiscovered = TOTAL_SPACE_OBJECTS;
     p.languagesLearned = 5;
     p.goldMedals = 3;

@@ -6,13 +6,19 @@ import type { MathLevel } from "../lib/mathQuiz";
 
 const KEY = "world-explorers-learn";
 
+/** The clock mini-games — each keeps its own best-stars record. */
+export type ClockMode = "read-full" | "read-half" | "read-quarter" | "match" | "set";
+
 export interface LearnData {
   lettersHeard: string[];
   wordsRead: string[];
   mathStars: Partial<Record<MathLevel, number>>;
   clockStars: number;
+  clockModeStars: Partial<Record<ClockMode, number>>;
   memoryWins: number;
   songsDone: string[];
+  /** Longest sequence reached in the music echo game. */
+  echoBest: number;
 }
 
 const EMPTY: LearnData = {
@@ -20,8 +26,10 @@ const EMPTY: LearnData = {
   wordsRead: [],
   mathStars: {},
   clockStars: 0,
+  clockModeStars: {},
   memoryWins: 0,
   songsDone: [],
+  echoBest: 0,
 };
 
 function load(): LearnData {
@@ -40,8 +48,10 @@ export interface LearningState {
   markWordRead: (id: string) => void;
   recordMathStars: (level: MathLevel, stars: number) => void;
   recordClockStars: (stars: number) => void;
+  recordClockModeStars: (mode: ClockMode, stars: number) => void;
   recordMemoryWin: () => void;
   markSongDone: (id: string) => void;
+  recordEchoBest: (length: number) => void;
 }
 
 export function useLearning(): LearningState {
@@ -72,6 +82,18 @@ export function useLearning(): LearningState {
     setData((d) => ({ ...d, clockStars: Math.max(d.clockStars, stars) }));
   }, []);
 
+  const recordClockModeStars = useCallback((mode: ClockMode, stars: number) => {
+    setData((d) => ({
+      ...d,
+      clockStars: Math.max(d.clockStars, stars),
+      clockModeStars: { ...d.clockModeStars, [mode]: Math.max(d.clockModeStars[mode] ?? 0, stars) },
+    }));
+  }, []);
+
+  const recordEchoBest = useCallback((length: number) => {
+    setData((d) => (length > d.echoBest ? { ...d, echoBest: length } : d));
+  }, []);
+
   const recordMemoryWin = useCallback(() => {
     setData((d) => ({ ...d, memoryWins: d.memoryWins + 1 }));
   }, []);
@@ -88,7 +110,9 @@ export function useLearning(): LearningState {
     markWordRead,
     recordMathStars,
     recordClockStars,
+    recordClockModeStars,
     recordMemoryWin,
     markSongDone,
+    recordEchoBest,
   };
 }

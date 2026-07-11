@@ -119,7 +119,7 @@ describe("planets data", () => {
 
 describe("space objects & constellations data", () => {
   it("space objects are well-formed and counted in the space total", () => {
-    expect(SPACE_OBJECTS.length).toBe(3);
+    expect(SPACE_OBJECTS.length).toBe(6);
     expect(TOTAL_SPACE_OBJECTS).toBe(PLANETS.length + SPACE_OBJECTS.length);
     const ids = SPACE_OBJECTS.map((o) => o.id);
     expect(new Set(ids).size).toBe(ids.length);

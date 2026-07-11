@@ -62,6 +62,10 @@ export class SolarSystemScene {
   private beltGroup: THREE.Group | null = null;
   private comet: { group: THREE.Group; nucleus: THREE.Mesh; tail: THREE.Sprite; angle: number } | null = null;
   private iss: { group: THREE.Group; angle: number } | null = null;
+  private astronaut: { group: THREE.Group; figure: THREE.Group; angle: number } | null = null;
+  private hubble: { group: THREE.Group; angle: number } | null = null;
+  /** Small/far objects that get the generous screen-proximity tap helper. */
+  private extraProximity: { id: string; obj: THREE.Object3D }[] = [];
 
   // Constellations
   private constellationsDiscovered: Set<string>;
@@ -144,6 +148,9 @@ export class SolarSystemScene {
     this.buildAsteroidBelt();
     this.buildComet();
     this.buildIss();
+    this.buildAstronaut();
+    this.buildHubble();
+    this.buildAndromeda();
     this.buildConstellations();
 
     const el = this.renderer.domElement;
@@ -464,6 +471,177 @@ export class SolarSystemScene {
     this.iss = { group, angle: 0 };
   }
 
+  /** A tiny spacewalking astronaut drifting around the Moon's neighborhood. */
+  private buildAstronaut() {
+    const spec = SPACE_OBJECTS.find((o) => o.id === "astronaut");
+    const earth = this.bodies.find((bb) => bb.spec.id === "earth");
+    if (!spec || !earth) return;
+
+    // orbit anchor around Earth (wider than the Moon so they don't collide)
+    const group = new THREE.Group();
+    group.position.copy(earth.mesh.position);
+    earth.group.add(group);
+
+    const figure = new THREE.Group();
+    const suit = new THREE.MeshStandardMaterial({ color: 0xf4f6fb, roughness: 0.55, metalness: 0.05 });
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.28, 4, 10), suit);
+    body.userData.bodyId = spec.id;
+    figure.add(body);
+    this.extraPickMeshes.push(body);
+    // golden visor helmet
+    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 12), suit);
+    helmet.position.y = 0.36;
+    figure.add(helmet);
+    const visor = new THREE.Mesh(
+      new THREE.SphereGeometry(0.11, 12, 12),
+      new THREE.MeshStandardMaterial({ color: 0xf2b134, roughness: 0.15, metalness: 0.7 })
+    );
+    visor.position.set(0.06, 0.36, 0);
+    figure.add(visor);
+    // backpack
+    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.28, 0.1), new THREE.MeshStandardMaterial({ color: 0xd7dde8, roughness: 0.6 }));
+    pack.position.set(-0.16, 0.08, 0);
+    figure.add(pack);
+    // arms + legs, splayed like a real spacewalk
+    const limbMat = suit;
+    for (const s of [1, -1]) {
+      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.05, 0.24, 3, 8), limbMat);
+      arm.position.set(0.05, 0.18, s * 0.22);
+      arm.rotation.x = s * 1.1;
+      figure.add(arm);
+      const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.3, 3, 8), limbMat);
+      leg.position.set(0, -0.32, s * 0.12);
+      leg.rotation.x = s * 0.28;
+      figure.add(leg);
+    }
+    figure.position.set(3.6, 0.9, 0);
+    group.add(figure);
+
+    const label = makeTextSprite(spec.nameHebrew, { fontSize: 64 });
+    label.scale.multiplyScalar(1.8);
+    label.position.set(3.6, 1.65, 0);
+    group.add(label);
+    const star = makeTextSprite("⭐", { fontSize: 64, stroke: "rgba(0,0,0,0)" });
+    star.scale.multiplyScalar(0.9);
+    star.position.set(4.1, 1.2, 0);
+    star.visible = this.discovered.has(spec.id);
+    group.add(star);
+    this.extraStars.set(spec.id, star);
+    this.focusTargets.set(spec.id, { obj: body, dist: 4 });
+    this.extraProximity.push({ id: spec.id, obj: body });
+
+    this.astronaut = { group, figure, angle: 2.2 };
+  }
+
+  /** The Hubble space telescope on a high Earth orbit. */
+  private buildHubble() {
+    const spec = SPACE_OBJECTS.find((o) => o.id === "hubble");
+    const earth = this.bodies.find((bb) => bb.spec.id === "earth");
+    if (!spec || !earth) return;
+
+    const group = new THREE.Group();
+    group.position.copy(earth.mesh.position);
+    earth.group.add(group);
+
+    const scope = new THREE.Group();
+    // silver telescope tube with a dark aperture
+    const tube = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.16, 0.16, 0.62, 12),
+      new THREE.MeshStandardMaterial({ color: 0xc8d3e6, roughness: 0.35, metalness: 0.6 })
+    );
+    tube.rotation.z = Math.PI / 2;
+    tube.userData.bodyId = spec.id;
+    scope.add(tube);
+    this.extraPickMeshes.push(tube);
+    const aperture = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.13, 0.13, 0.05, 12),
+      new THREE.MeshStandardMaterial({ color: 0x101828, roughness: 0.8 })
+    );
+    aperture.rotation.z = Math.PI / 2;
+    aperture.position.x = 0.33;
+    scope.add(aperture);
+    // twin solar wings
+    const wingMat = new THREE.MeshStandardMaterial({ color: 0xb4762a, roughness: 0.4, metalness: 0.45, side: THREE.DoubleSide });
+    for (const s of [1, -1]) {
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.015, 0.5), wingMat);
+      wing.position.set(0, 0, s * 0.42);
+      scope.add(wing);
+    }
+    scope.position.set(-2.6, 0.85, 0);
+    group.add(scope);
+
+    const label = makeTextSprite(spec.nameHebrew, { fontSize: 64 });
+    label.scale.multiplyScalar(1.7);
+    label.position.set(-2.6, 1.5, 0);
+    group.add(label);
+    const star = makeTextSprite("⭐", { fontSize: 64, stroke: "rgba(0,0,0,0)" });
+    star.scale.multiplyScalar(0.9);
+    star.position.set(-2.1, 1.25, 0);
+    star.visible = this.discovered.has(spec.id);
+    group.add(star);
+    this.extraStars.set(spec.id, star);
+    this.focusTargets.set(spec.id, { obj: tube, dist: 4 });
+    this.extraProximity.push({ id: spec.id, obj: tube });
+
+    this.hubble = { group, angle: 3.6 };
+  }
+
+  /** The Andromeda galaxy — a glowing tilted spiral far beyond the planets. */
+  private buildAndromeda() {
+    const spec = SPACE_OBJECTS.find((o) => o.id === "andromeda");
+    if (!spec) return;
+
+    const group = new THREE.Group();
+    const dir = new THREE.Vector3(-0.55, 0.42, -0.72).normalize();
+    group.position.copy(dir.multiplyScalar(1150));
+
+    // layered glow sprites: bright core + two stretched disk halos
+    const core = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture("rgba(255,244,214,0.95)", "rgba(214,190,255,0)", 256),
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    core.scale.set(70, 56, 1);
+    group.add(core);
+    const disk = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture("rgba(185,168,232,0.75)", "rgba(123,106,208,0)", 256),
+      transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    disk.scale.set(220, 84, 1);
+    (disk.material as THREE.SpriteMaterial).rotation = -0.5;
+    group.add(disk);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture("rgba(150,140,220,0.4)", "rgba(110,95,200,0)", 256),
+      transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    halo.scale.set(320, 140, 1);
+    (halo.material as THREE.SpriteMaterial).rotation = -0.5;
+    group.add(halo);
+
+    // invisible pick target
+    const pick = new THREE.Mesh(
+      new THREE.SphereGeometry(85, 10, 10),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    );
+    pick.userData.bodyId = spec.id;
+    group.add(pick);
+    this.extraPickMeshes.push(pick);
+
+    const label = makeTextSprite(spec.nameHebrew, { fontSize: 64 });
+    label.scale.multiplyScalar(42);
+    label.position.set(0, -125, 0);
+    group.add(label);
+    const star = makeTextSprite("⭐", { fontSize: 64, stroke: "rgba(0,0,0,0)" });
+    star.scale.multiplyScalar(26);
+    star.position.set(120, 70, 0);
+    star.visible = this.discovered.has(spec.id);
+    group.add(star);
+    this.extraStars.set(spec.id, star);
+    this.focusTargets.set(spec.id, { obj: pick, dist: 430 });
+    this.extraProximity.push({ id: spec.id, obj: pick });
+
+    this.scene.add(group);
+  }
+
   // ─── Constellations ────────────────────────────────────────────────────────
 
   private buildConstellations() {
@@ -635,6 +813,7 @@ export class SolarSystemScene {
       ...this.bodies.map((b) => ({ id: b.spec.id, obj: b.mesh as THREE.Object3D })),
       ...(this.comet ? [{ id: "comet", obj: this.comet.nucleus as THREE.Object3D }] : []),
       ...(this.iss ? [{ id: "iss", obj: this.focusTargets.get("iss")!.obj }] : []),
+      ...this.extraProximity,
     ];
     for (const t of smallTargets) {
       const [sx, sy] = project(t.obj);
@@ -767,6 +946,22 @@ export class SolarSystemScene {
     if (this.iss) {
       this.iss.angle += dt * 1.1 * speedScale;
       this.iss.group.rotation.y = this.iss.angle;
+    }
+
+    // The astronaut drifts lazily around Earth, tumbling gently
+    if (this.astronaut) {
+      this.astronaut.angle += dt * 0.35 * speedScale;
+      this.astronaut.group.rotation.y = this.astronaut.angle;
+      const t = performance.now() / 1000;
+      this.astronaut.figure.rotation.z = Math.sin(t * 0.7) * 0.5;
+      this.astronaut.figure.rotation.x = Math.cos(t * 0.5) * 0.35;
+      this.astronaut.figure.position.y = 0.9 + Math.sin(t * 1.1) * 0.18;
+    }
+
+    // Hubble on its high, slow orbit (opposite direction from the ISS)
+    if (this.hubble) {
+      this.hubble.angle -= dt * 0.5 * speedScale;
+      this.hubble.group.rotation.y = this.hubble.angle;
     }
 
     // Shooting stars ✨
