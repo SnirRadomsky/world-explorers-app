@@ -6,6 +6,9 @@ import Map2DView from "./components/WorldMap/Map2DView";
 import IsraelMap from "./components/WorldMap/IsraelMap";
 import SolarSystemView from "./components/Space/SolarSystemView";
 import OceanDiveView from "./components/Ocean/OceanDiveView";
+import SpaceStationView from "./components/Station/SpaceStationView";
+import LandJourneyView from "./components/Land/LandJourneyView";
+import DeepSeaView from "./components/DeepSea/DeepSeaView";
 import LandmarksGallery from "./components/Landmark/LandmarksGallery";
 import LandmarkView from "./components/Landmark/LandmarkView";
 import LearnHub from "./components/Learn/LearnHub";
@@ -29,9 +32,12 @@ import { TOTAL_SPACE_OBJECTS } from "./data/planets";
 import { TOTAL_MARINE_CREATURES } from "./data/marineLife";
 import type { OceanId } from "./data/oceans";
 import { TOTAL_LANDMARKS } from "./data/landmarks";
+import { TOTAL_STATION_OBJECTS } from "./data/spaceStation";
+import { TOTAL_LAND_SIGHTS } from "./data/landJourney";
+import { TOTAL_DEEP_SEA_FINDS } from "./data/deepSea";
 import { STICKERS } from "./lib/stickers";
 
-type Screen = "home" | "globe" | "map2d" | "israel" | "space" | "ocean" | "landmarks" | "learn" | "quiz" | "album" | "encyclopedia";
+type Screen = "home" | "globe" | "map2d" | "israel" | "space" | "station" | "land" | "ocean" | "deepsea" | "landmarks" | "learn" | "quiz" | "album" | "encyclopedia";
 type WorldMode = "continents" | "countries";
 
 const SCREEN_LABELS: Record<Screen, string> = {
@@ -40,7 +46,10 @@ const SCREEN_LABELS: Record<Screen, string> = {
   map2d: "מפה שטוחה",
   israel: "ערי ישראל",
   space: "מערכת השמש",
+  station: "תחנת החלל",
+  land: "מסע תחבורה",
   ocean: "עולם האוקיינוס",
+  deepsea: "משלחת הצוללת",
   landmarks: "פלאי העולם",
   learn: "בית הספר הקטן",
   quiz: "חידון",
@@ -92,6 +101,9 @@ export default function App() {
   const visitedDiscovery = useDiscovery("visited");
   const landmarksDiscovery = useDiscovery("landmarks");
   const treasuresDiscovery = useDiscovery("treasures");
+  const stationDiscovery = useDiscovery("station");
+  const landDiscovery = useDiscovery("land");
+  const deepSeaDiscovery = useDiscovery("deepsea");
 
   const mathStarsTotal =
     (learning.data.mathStars.count ?? 0) +
@@ -109,6 +121,9 @@ export default function App() {
       visitedCount: visitedDiscovery.totalDiscovered,
       landmarksVisited: landmarksDiscovery.totalDiscovered,
       treasuresFound: treasuresDiscovery.totalDiscovered,
+      stationDiscovered: stationDiscovery.totalDiscovered,
+      landDiscovered: landDiscovery.discovered,
+      deepSeaDiscovered: deepSeaDiscovery.totalDiscovered,
       lettersKnown: learning.lettersHeard.size,
       wordsRead: learning.wordsRead.size,
       mathStarsTotal,
@@ -125,6 +140,9 @@ export default function App() {
       visitedDiscovery.totalDiscovered,
       landmarksDiscovery.totalDiscovered,
       treasuresDiscovery.totalDiscovered,
+      stationDiscovery.totalDiscovered,
+      landDiscovery.discovered,
+      deepSeaDiscovery.totalDiscovered,
       learning.lettersHeard.size,
       learning.wordsRead.size,
       mathStarsTotal,
@@ -143,7 +161,10 @@ export default function App() {
     constellationsDiscovery.totalDiscovered +
     oceanDiscovery.totalDiscovered +
     landmarksDiscovery.totalDiscovered +
-    treasuresDiscovery.totalDiscovered;
+    treasuresDiscovery.totalDiscovered +
+    stationDiscovery.totalDiscovered +
+    landDiscovery.totalDiscovered +
+    deepSeaDiscovery.totalDiscovered;
 
   const activeWorldDiscovery = worldMode === "continents" ? continentsDiscovery : countriesDiscovery;
 
@@ -173,8 +194,14 @@ export default function App() {
         return { count: israelDiscovery.totalDiscovered, total: TOTAL_ISRAEL_SITES };
       case "space":
         return { count: planetsDiscovery.totalDiscovered, total: TOTAL_SPACE_OBJECTS };
+      case "station":
+        return { count: stationDiscovery.totalDiscovered, total: TOTAL_STATION_OBJECTS };
+      case "land":
+        return { count: landDiscovery.totalDiscovered, total: TOTAL_LAND_SIGHTS };
       case "ocean":
         return { count: oceanDiscovery.totalDiscovered, total: TOTAL_MARINE_CREATURES };
+      case "deepsea":
+        return { count: deepSeaDiscovery.totalDiscovered, total: TOTAL_DEEP_SEA_FINDS };
       case "landmarks":
         return { count: landmarksDiscovery.totalDiscovered, total: TOTAL_LANDMARKS };
       default:
@@ -184,7 +211,8 @@ export default function App() {
 
   const canReset =
     screen === "globe" || screen === "map2d" || screen === "israel" || screen === "space" ||
-    screen === "ocean" || screen === "landmarks";
+    screen === "ocean" || screen === "landmarks" || screen === "station" || screen === "land" ||
+    screen === "deepsea";
 
   const doReset = useCallback(() => {
     setGateOpen(false);
@@ -196,14 +224,17 @@ export default function App() {
     else if (screen === "landmarks") {
       landmarksDiscovery.resetProgress();
       treasuresDiscovery.resetProgress();
-    } else activeWorldDiscovery.resetProgress();
+    } else if (screen === "station") stationDiscovery.resetProgress();
+    else if (screen === "land") landDiscovery.resetProgress();
+    else if (screen === "deepsea") deepSeaDiscovery.resetProgress();
+    else activeWorldDiscovery.resetProgress();
     speakHebrew("ההתקדמות אופסה. יוצאים להרפתקה חדשה!");
-  }, [screen, israelDiscovery, planetsDiscovery, constellationsDiscovery, oceanDiscovery, landmarksDiscovery, treasuresDiscovery, activeWorldDiscovery, speakHebrew]);
+  }, [screen, israelDiscovery, planetsDiscovery, constellationsDiscovery, oceanDiscovery, landmarksDiscovery, treasuresDiscovery, stationDiscovery, landDiscovery, deepSeaDiscovery, activeWorldDiscovery, speakHebrew]);
 
   // ── One shared root: the LaunchOverlay must never remount mid-flight when
   // the screen underneath it switches (home ↔ space), so every screen and the
   // overlays live under a single stable tree. ──
-  const isSpaceish = screen === "space";
+  const isSpaceish = screen === "space" || screen === "station";
 
   return (
     <div
@@ -222,6 +253,9 @@ export default function App() {
             planets: planetsDiscovery.totalDiscovered,
             ocean: oceanDiscovery.totalDiscovered,
             landmarks: landmarksDiscovery.totalDiscovered,
+            station: stationDiscovery.totalDiscovered,
+            land: landDiscovery.totalDiscovered,
+            deepsea: deepSeaDiscovery.totalDiscovered,
           }}
           stickersUnlocked={stickers.unlocked.size}
           stickersTotal={STICKERS.length}
@@ -360,6 +394,30 @@ export default function App() {
           speakHebrew={speakHebrew}
           playSfx={play}
           initialOcean={oceanStart}
+        />
+      )}
+
+      {screen === "station" && (
+        <SpaceStationView
+          stationDiscovery={stationDiscovery}
+          speakHebrew={speakHebrew}
+          playSfx={play}
+        />
+      )}
+
+      {screen === "land" && (
+        <LandJourneyView
+          landDiscovery={landDiscovery}
+          speakHebrew={speakHebrew}
+          playSfx={play}
+        />
+      )}
+
+      {screen === "deepsea" && (
+        <DeepSeaView
+          deepSeaDiscovery={deepSeaDiscovery}
+          speakHebrew={speakHebrew}
+          playSfx={play}
         />
       )}
 

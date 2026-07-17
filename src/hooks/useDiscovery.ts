@@ -11,7 +11,10 @@ type GameMode =
   | "ocean"
   | "visited"
   | "landmarks"
-  | "treasures";
+  | "treasures"
+  | "station"
+  | "land"
+  | "deepsea";
 
 const STORAGE_KEY_PREFIX = "world-explorers-discoveries";
 

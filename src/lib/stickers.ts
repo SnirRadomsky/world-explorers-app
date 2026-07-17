@@ -8,6 +8,9 @@ import { TOTAL_CONSTELLATIONS } from "../data/constellations";
 import { MARINE_LIFE, TOTAL_MARINE_CREATURES } from "../data/marineLife";
 import { TOTAL_LANDMARKS, TOTAL_TREASURES } from "../data/landmarks";
 import { TOTAL_LETTERS } from "../data/hebrewLetters";
+import { TOTAL_STATION_OBJECTS } from "../data/spaceStation";
+import { LAND_SIGHTS, TOTAL_LAND_SIGHTS } from "../data/landJourney";
+import { TOTAL_DEEP_SEA_FINDS } from "../data/deepSea";
 
 export interface StickerDef {
   id: string;
@@ -38,6 +41,10 @@ export interface ProgressSnapshot {
   mathStarsTotal?: number;
   memoryWins?: number;
   songsDone?: number;
+  /** 5.0 additions — space station, land journey and the deep-sea expedition. */
+  stationDiscovered?: number;
+  landDiscovered?: Set<string>;
+  deepSeaDiscovered?: number;
 }
 
 const CONTINENT_STICKERS: StickerDef[] = [
@@ -76,11 +83,26 @@ export const STICKERS: StickerDef[] = [
   { id: "st-math",      emoji: "➕", nameHebrew: "תלמיד מצטיין",   howHebrew: "אספו 6 כוכבים בחשבון בכיף" },
   { id: "st-memory",    emoji: "🃏", nameHebrew: "אלוף הזיכרון",   howHebrew: "נצחו 3 פעמים במשחק הזיכרון" },
   { id: "st-musician",  emoji: "🎵", nameHebrew: "מוזיקאי קטן",    howHebrew: "נגנו 3 שירים בתיבת הנגינה" },
+  { id: "st-crew",      emoji: "🛰️", nameHebrew: "איש צוות התחנה", howHebrew: "גלו 10 מכשירים בתחנת החלל" },
+  { id: "st-engineer",  emoji: "🧑‍🚀", nameHebrew: "מהנדס החלל",     howHebrew: `גלו את כל ${TOTAL_STATION_OBJECTS} המכשירים בתחנת החלל` },
+  { id: "st-driver",    emoji: "🚗", nameHebrew: "נהג מספר 1",     howHebrew: "גלו את כל התחנות במסלול המכונית" },
+  { id: "st-conductor", emoji: "🚂", nameHebrew: "מנהל הרכבת",     howHebrew: "גלו את כל התחנות במסלול הרכבת" },
+  { id: "st-pilot",     emoji: "✈️", nameHebrew: "טייס צעיר",      howHebrew: "גלו את כל התחנות במסלול המטוס" },
+  { id: "st-roads",     emoji: "🛣️", nameHebrew: "מלך הדרכים",     howHebrew: `גלו את כל ${TOTAL_LAND_SIGHTS} התחנות בכל המסלולים` },
+  { id: "st-submariner", emoji: "🛥️", nameHebrew: "צוללן אמיץ",    howHebrew: "גלו 15 ממצאים במשלחת הצוללת" },
+  { id: "st-abyss",     emoji: "🔱", nameHebrew: "שליט המצולות",   howHebrew: `גלו את כל ${TOTAL_DEEP_SEA_FINDS} הממצאים במעמקי הים` },
 ];
 
 export const STICKER_BY_ID = new Map(STICKERS.map((s) => [s.id, s]));
 
 const DEEP_CREATURE_IDS = MARINE_LIFE.filter((c) => c.zone === "deep").map((c) => c.id);
+
+const SIGHTS_PER_VEHICLE = new Map<string, string[]>();
+for (const s of LAND_SIGHTS) {
+  const list = SIGHTS_PER_VEHICLE.get(s.vehicle) ?? [];
+  list.push(s.id);
+  SIGHTS_PER_VEHICLE.set(s.vehicle, list);
+}
 
 const countriesPerContinent = new Map<string, string[]>();
 for (const c of COUNTRIES) {
@@ -137,6 +159,18 @@ export function computeUnlockedStickers(p: ProgressSnapshot): Set<string> {
   if ((p.mathStarsTotal ?? 0) >= 6) unlocked.add("st-math");
   if ((p.memoryWins ?? 0) >= 3) unlocked.add("st-memory");
   if ((p.songsDone ?? 0) >= 3) unlocked.add("st-musician");
+
+  // 5.0: space station, land journey, deep-sea expedition
+  if ((p.stationDiscovered ?? 0) >= 10) unlocked.add("st-crew");
+  if ((p.stationDiscovered ?? 0) >= TOTAL_STATION_OBJECTS) unlocked.add("st-engineer");
+  const land = p.landDiscovered ?? new Set<string>();
+  for (const [vehicle, sticker] of [["car", "st-driver"], ["train", "st-conductor"], ["plane", "st-pilot"]] as const) {
+    const ids = SIGHTS_PER_VEHICLE.get(vehicle) ?? [];
+    if (ids.length > 0 && ids.every((id) => land.has(id))) unlocked.add(sticker);
+  }
+  if (land.size >= TOTAL_LAND_SIGHTS) unlocked.add("st-roads");
+  if ((p.deepSeaDiscovered ?? 0) >= 15) unlocked.add("st-submariner");
+  if ((p.deepSeaDiscovered ?? 0) >= TOTAL_DEEP_SEA_FINDS) unlocked.add("st-abyss");
 
   return unlocked;
 }

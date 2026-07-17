@@ -647,3 +647,122 @@ test("encyclopedia shows the wonders and treasures sections", async ({ page }) =
   await page.getByTestId("enc-tab-treasures").click();
   await expect(page.getByTestId("enc-tab-treasures")).toContainText("אוצרות");
 });
+
+// ─── 5.0: space station, land journey, deep-sea expedition ───────────────────
+
+test("home screen shows the 5.0 adventure tiles", async ({ page }) => {
+  await gotoHome(page);
+  await expect(page.getByTestId("home-station")).toContainText("תחנת החלל");
+  await expect(page.getByTestId("home-land")).toContainText("מסע תחבורה");
+  await expect(page.getByTestId("home-deepsea")).toContainText("משלחת הצוללת");
+});
+
+test("space station: rooms switch and equipment can be discovered", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-station").click();
+
+  const container = page.getByTestId("station-container");
+  await expect(container.locator("canvas")).toBeVisible({ timeout: 20_000 });
+
+  // room tabs switch the scene
+  await page.getByTestId("station-room-engine").click();
+  await expect(container.locator("canvas")).toBeVisible();
+  await page.getByTestId("station-room-cockpit").click();
+  await expect(container.locator("canvas")).toBeVisible();
+
+  // scan-tap until a piece of equipment registers a discovery
+  await page.waitForTimeout(1200);
+  const box = await container.boundingBox();
+  if (!box) throw new Error("station container has no box");
+  let discovered = false;
+  outer:
+  for (let ry = 0.3; ry <= 0.8; ry += 0.08) {
+    for (let rx = 0.1; rx <= 0.9; rx += 0.11) {
+      await page.mouse.click(box.x + box.width * rx, box.y + box.height * ry);
+      await page.waitForTimeout(120);
+      if (await page.getByRole("button", { name: "עוד! 👀" }).isVisible().catch(() => false)) {
+        discovered = true;
+        break outer;
+      }
+    }
+  }
+  expect(discovered).toBe(true);
+  // the discovery opens a fact card
+  await page.getByRole("button", { name: "עוד! 👀" }).click();
+  await expect(page.getByText(/💡/)).toBeVisible();
+  await page.getByRole("button", { name: "סגירה" }).click();
+  await expect(page.getByText(/גיליתם כאן/)).toBeVisible();
+});
+
+test("land journey: vehicles switch and a sight can be discovered", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-land").click();
+
+  const container = page.getByTestId("land-container");
+  await expect(container.locator("canvas")).toBeVisible({ timeout: 20_000 });
+
+  // vehicle tabs rebuild the scene
+  await page.getByTestId("land-vehicle-train").click();
+  await expect(container.locator("canvas")).toBeVisible();
+  await page.getByTestId("land-vehicle-plane").click();
+  await expect(container.locator("canvas")).toBeVisible();
+  await page.getByTestId("land-vehicle-car").click();
+  await expect(container.locator("canvas")).toBeVisible();
+
+  // speed toggle responds
+  await page.getByTestId("land-speed").click();
+
+  // scan-tap for a roadside sight
+  await page.waitForTimeout(2000);
+  const box = await container.boundingBox();
+  if (!box) throw new Error("land container has no box");
+  let discovered = false;
+  outer:
+  for (let pass = 0; pass < 3 && !discovered; pass++) {
+    for (let ry = 0.25; ry <= 0.75; ry += 0.1) {
+      for (let rx = 0.05; rx <= 0.95; rx += 0.1) {
+        await page.mouse.click(box.x + box.width * rx, box.y + box.height * ry);
+        await page.waitForTimeout(100);
+        if (await page.getByRole("button", { name: "עוד! 👀" }).isVisible().catch(() => false)) {
+          discovered = true;
+          break outer;
+        }
+      }
+    }
+  }
+  expect(discovered).toBe(true);
+  await expect(page.getByText(/תחנות במסלול/)).toBeVisible();
+});
+
+test("deep sea: areas and craft switch, a find can be discovered", async ({ page }) => {
+  await gotoHome(page);
+  await page.getByTestId("home-deepsea").click();
+
+  const container = page.getByTestId("deepsea-container");
+  await expect(container.locator("canvas")).toBeVisible({ timeout: 20_000 });
+
+  // area tabs + craft toggle rebuild the scene
+  await page.getByTestId("deepsea-area-ruins").click();
+  await expect(container.locator("canvas")).toBeVisible();
+  await page.getByTestId("deepsea-craft-diver").click();
+  await expect(container.locator("canvas")).toBeVisible();
+
+  // scan-tap for a find
+  await page.waitForTimeout(1200);
+  const box = await container.boundingBox();
+  if (!box) throw new Error("deepsea container has no box");
+  let discovered = false;
+  outer:
+  for (let ry = 0.3; ry <= 0.85; ry += 0.08) {
+    for (let rx = 0.1; rx <= 0.9; rx += 0.11) {
+      await page.mouse.click(box.x + box.width * rx, box.y + box.height * ry);
+      await page.waitForTimeout(120);
+      if (await page.getByRole("button", { name: "עוד! 👀" }).isVisible().catch(() => false)) {
+        discovered = true;
+        break outer;
+      }
+    }
+  }
+  expect(discovered).toBe(true);
+  await expect(page.getByText(/גיליתם כאן/)).toBeVisible();
+});

@@ -4,10 +4,13 @@ import { TOTAL_ISRAEL_SITES } from "../../data/israelCities";
 import { TOTAL_SPACE_OBJECTS } from "../../data/planets";
 import { TOTAL_MARINE_CREATURES } from "../../data/marineLife";
 import { TOTAL_LANDMARKS } from "../../data/landmarks";
+import { TOTAL_STATION_OBJECTS } from "../../data/spaceStation";
+import { TOTAL_LAND_SIGHTS } from "../../data/landJourney";
+import { TOTAL_DEEP_SEA_FINDS } from "../../data/deepSea";
 import { levelFor } from "../../lib/stickers";
 
 export type HomeTarget =
-  | "globe" | "map2d" | "israel" | "space" | "ocean" | "landmarks"
+  | "globe" | "map2d" | "israel" | "space" | "station" | "land" | "ocean" | "deepsea" | "landmarks"
   | "learn" | "quiz" | "album" | "encyclopedia";
 
 interface HomeScreenProps {
@@ -21,6 +24,9 @@ interface HomeScreenProps {
     planets: number;
     ocean: number;
     landmarks: number;
+    station: number;
+    land: number;
+    deepsea: number;
   };
   stickersUnlocked: number;
   stickersTotal: number;
@@ -240,6 +246,35 @@ export default function HomeScreen({
           shadow="0 8px 24px rgba(245,158,11,0.45)"
           onClick={() => onSelect("landmarks")}
           testId="home-landmarks"
+        />
+        <SectionHeader>🧭 הרפתקאות חדשות</SectionHeader>
+        <Tile
+          emoji="🛰️"
+          label="תחנת החלל"
+          sub={`חקרו 7 חדרים! ${discoveredPerMode.station} מתוך ${TOTAL_STATION_OBJECTS} מכשירים`}
+          gradient="linear-gradient(135deg,#312e81,#0f172a)"
+          shadow="0 8px 24px rgba(49,46,129,0.5)"
+          onClick={() => onSelect("station")}
+          testId="home-station"
+        />
+        <Tile
+          emoji="🚗"
+          label="מסע תחבורה"
+          sub={`מכונית · רכבת · מטוס! ${discoveredPerMode.land} מתוך ${TOTAL_LAND_SIGHTS} תחנות`}
+          gradient="linear-gradient(135deg,#dc2626,#9a3412)"
+          shadow="0 8px 24px rgba(220,38,38,0.45)"
+          onClick={() => onSelect("land")}
+          testId="home-land"
+        />
+        <Tile
+          big
+          emoji="🤿"
+          label="משלחת הצוללת"
+          sub={`ספינה טרופה, מערה זוהרת ועיר שקועה! ${discoveredPerMode.deepsea} מתוך ${TOTAL_DEEP_SEA_FINDS} ממצאים`}
+          gradient="linear-gradient(135deg,#0369a1,#1e3a5f)"
+          shadow="0 8px 24px rgba(3,105,161,0.5)"
+          onClick={() => onSelect("deepsea")}
+          testId="home-deepsea"
         />
         <SectionHeader>🎓 לומדים ומשחקים</SectionHeader>
         <Tile
