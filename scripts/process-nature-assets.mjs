@@ -27,7 +27,12 @@ let sharp;
 try {
   sharp = require("sharp");
 } catch {
-  execSync("npm install --save-dev sharp", { cwd: root, stdio: "inherit" });
+  // Local-only tool. Install from public npm so company JFrog registries
+  // do not get written into package.json / lockfile (breaks CI).
+  execSync(
+    "npm install --no-save --legacy-peer-deps --registry=https://registry.npmjs.org sharp@0.35.3",
+    { cwd: root, stdio: "inherit" }
+  );
   sharp = require("sharp");
 }
 
