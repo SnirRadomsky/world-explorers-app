@@ -34,6 +34,8 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
+        env:
+          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
         run: npm ci --legacy-peer-deps
 
       - name: Build web assets
