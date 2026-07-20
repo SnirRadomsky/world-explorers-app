@@ -1,7 +1,9 @@
 // The diorama construction kit: famous landmarks, land animals and nature
 // pieces — all low-poly, assembled from primitives, zero model files.
+// Nature props prefer painted billboard sprites when a theme pack is active.
 
 import * as THREE from "three";
+import { hasNatureSprite, natureBillboard } from "./natureAssets";
 
 export type LandmarkId =
   | "eiffel" | "pyramid" | "colosseum" | "bigben" | "liberty" | "operaHouse"
@@ -747,6 +749,28 @@ function tree(trunkH: number, crown: string, crownShape: "cone" | "sphere" = "co
   return g;
 }
 
+function addBillboardOr(
+  g: THREE.Group,
+  kind: Parameters<typeof natureBillboard>[0],
+  size: number,
+  x: number,
+  z: number,
+  fallback: () => THREE.Object3D,
+  opts?: Parameters<typeof natureBillboard>[2]
+) {
+  if (hasNatureSprite(kind)) {
+    const bb = natureBillboard(kind, size, opts);
+    if (bb) {
+      bb.position.set(x, 0, z);
+      g.add(bb);
+      return;
+    }
+  }
+  const f = fallback();
+  f.position.set(x, 0, z);
+  g.add(f);
+}
+
 const nature: Record<NatureId, () => THREE.Group> = {
   mountain() {
     const g = new THREE.Group();
@@ -756,84 +780,98 @@ const nature: Record<NatureId, () => THREE.Group> = {
     const cap = cone(0.55, 0.75, m("#f6f8fb", { rough: 0.4 }), 7);
     cap.position.y = 2.35;
     g.add(cap);
+    if (hasNatureSprite("rock")) {
+      for (const [x, z, s] of [[-1.1, 0.6, 0.7], [1.0, -0.5, 0.55]] as [number, number, number][]) {
+        const r = natureBillboard("rock", s);
+        if (r) {
+          r.position.set(x, 0, z);
+          g.add(r);
+        }
+      }
+    }
     return g;
   },
   forest() {
     const g = new THREE.Group();
     for (const [x, z, h] of [[-0.6, 0.3, 0.7], [0.2, -0.4, 0.9], [0.8, 0.4, 0.6], [0, 0.6, 0.8]] as [number, number, number][]) {
-      const t = tree(h, "#2f7d46");
-      t.position.set(x, 0, z);
-      g.add(t);
+      addBillboardOr(g, "tree", 1.4 + h, x, z, () => tree(h, "#2f7d46"), { sway: 0.025 });
     }
     return g;
   },
   palms() {
     const g = new THREE.Group();
-    for (const [x, z, lean] of [[-0.4, 0.2, 0.15], [0.6, -0.3, -0.2]] as [number, number, number][]) {
-      const p = new THREE.Group();
-      const trunk = cyl(0.06, 0.1, 1.6, m("#8a6a45"), 6);
-      trunk.position.y = 0.8;
-      trunk.rotation.z = lean;
-      p.add(trunk);
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2;
-        const frond = ell(0.55, 0.06, 0.16, m("#3fa060"));
-        frond.position.set(Math.cos(a) * 0.4 + lean * 1.5, 1.68, Math.sin(a) * 0.4);
-        frond.rotation.y = -a;
-        frond.rotation.z = 0.35;
-        p.add(frond);
-      }
-      p.position.set(x, 0, z);
-      g.add(p);
+    for (const [x, z] of [[-0.4, 0.2], [0.6, -0.3]] as [number, number][]) {
+      addBillboardOr(g, "palm", 2.2, x, z, () => {
+        const p = new THREE.Group();
+        const trunk = cyl(0.06, 0.1, 1.6, m("#8a6a45"), 6);
+        trunk.position.y = 0.8;
+        p.add(trunk);
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          const frond = ell(0.55, 0.06, 0.16, m("#3fa060"));
+          frond.position.set(Math.cos(a) * 0.4, 1.68, Math.sin(a) * 0.4);
+          frond.rotation.y = -a;
+          frond.rotation.z = 0.35;
+          p.add(frond);
+        }
+        return p;
+      }, { sway: 0.03, widthScale: 0.7 });
     }
     return g;
   },
   cactus() {
     const g = new THREE.Group();
-    const green = m("#3d8b57");
-    const main = cyl(0.16, 0.18, 1.5, green, 8);
-    main.position.y = 0.75;
-    g.add(main);
-    for (const s of [1, -1]) {
-      const arm = cyl(0.1, 0.1, 0.6, green, 6);
-      arm.position.set(s * 0.32, 0.9, 0);
-      arm.rotation.z = s * -0.9;
-      g.add(arm);
-      const armUp = cyl(0.09, 0.09, 0.45, green, 6);
-      armUp.position.set(s * 0.52, 1.3, 0);
-      g.add(armUp);
-    }
+    addBillboardOr(g, "cactus", 1.8, 0, 0, () => {
+      const p = new THREE.Group();
+      const green = m("#3d8b57");
+      const main = cyl(0.16, 0.18, 1.5, green, 8);
+      main.position.y = 0.75;
+      p.add(main);
+      for (const s of [1, -1]) {
+        const arm = cyl(0.1, 0.1, 0.6, green, 6);
+        arm.position.set(s * 0.32, 0.9, 0);
+        arm.rotation.z = s * -0.9;
+        p.add(arm);
+        const armUp = cyl(0.09, 0.09, 0.45, green, 6);
+        armUp.position.set(s * 0.52, 1.3, 0);
+        p.add(armUp);
+      }
+      return p;
+    }, { widthScale: 0.65 });
     return g;
   },
   cherry() {
     const g = new THREE.Group();
     for (const [x, z] of [[-0.4, 0.2], [0.55, -0.25]]) {
-      const t = tree(0.9, "#f5a8c7", "sphere");
-      t.position.set(x, 0, z);
-      g.add(t);
-      // falling petals
-      for (let i = 0; i < 5; i++) {
-        const petal = sphere(0.035, m("#fbcfe8"));
-        petal.position.set(x + (Math.sin(i * 2.1) * 0.5), 0.4 + (i % 3) * 0.35, z + Math.cos(i * 1.7) * 0.4);
-        g.add(petal);
-      }
+      addBillboardOr(g, "cherry", 2.0, x, z, () => tree(0.9, "#f5a8c7", "sphere"), { sway: 0.02 });
     }
     return g;
   },
   savannaTree() {
     const g = new THREE.Group();
-    const trunk = cyl(0.09, 0.14, 1.3, m("#6e4a2b"), 6);
-    trunk.position.y = 0.65;
-    g.add(trunk);
-    // flat acacia crown
-    const crown = ell(1.0, 0.22, 1.0, m("#5c8a3d"));
-    crown.position.y = 1.5;
-    g.add(crown);
+    addBillboardOr(g, "acacia", 2.2, 0, 0, () => {
+      const p = new THREE.Group();
+      const trunk = cyl(0.09, 0.14, 1.3, m("#6e4a2b"), 6);
+      trunk.position.y = 0.65;
+      p.add(trunk);
+      const crown = ell(1.0, 0.22, 1.0, m("#5c8a3d"));
+      crown.position.y = 1.5;
+      p.add(crown);
+      return p;
+    }, { widthScale: 0.95 });
     return g;
   },
   icebergs() {
     const g = new THREE.Group();
     for (const [x, z, s] of [[-0.7, 0.3, 0.8], [0.5, -0.3, 1.1], [1.1, 0.5, 0.55]] as [number, number, number][]) {
+      if (hasNatureSprite("rock")) {
+        const r = natureBillboard("rock", 0.9 * s, { tint: 0xdcf0fa });
+        if (r) {
+          r.position.set(x, 0, z);
+          g.add(r);
+          continue;
+        }
+      }
       const berg = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55 * s, 0), m("#dcf0fa", { rough: 0.3 }));
       berg.position.set(x, 0.3 * s, z);
       g.add(berg);
@@ -842,6 +880,16 @@ const nature: Record<NatureId, () => THREE.Group> = {
   },
   tulips() {
     const g = new THREE.Group();
+    if (hasNatureSprite("flowers")) {
+      for (const [x, z] of [[-0.5, 0], [0.2, 0.3], [0.7, -0.2]]) {
+        const f = natureBillboard("flowers", 0.7, { widthScale: 1.1 });
+        if (f) {
+          f.position.set(x, 0, z);
+          g.add(f);
+        }
+      }
+      return g;
+    }
     const colors = ["#e74c3c", "#f1c40f", "#e91e8c", "#9b59b6"];
     for (let row = 0; row < 3; row++) {
       for (let i = 0; i < 5; i++) {
@@ -861,15 +909,16 @@ const nature: Record<NatureId, () => THREE.Group> = {
   cypress() {
     const g = new THREE.Group();
     for (const [x, z] of [[-0.5, 0.2], [0.1, -0.3], [0.7, 0.25]]) {
-      const t = new THREE.Group();
-      const trunk = cyl(0.05, 0.07, 0.3, m("#6e4a2b"), 5);
-      trunk.position.y = 0.15;
-      t.add(trunk);
-      const crown = ell(0.2, 0.85, 0.2, m("#2d6a3f"));
-      crown.position.y = 1.05;
-      t.add(crown);
-      t.position.set(x, 0, z);
-      g.add(t);
+      addBillboardOr(g, "cypress", 2.0, x, z, () => {
+        const t = new THREE.Group();
+        const trunk = cyl(0.05, 0.07, 0.3, m("#6e4a2b"), 5);
+        trunk.position.y = 0.15;
+        t.add(trunk);
+        const crown = ell(0.2, 0.85, 0.2, m("#2d6a3f"));
+        crown.position.y = 1.05;
+        t.add(crown);
+        return t;
+      }, { widthScale: 0.45 });
     }
     return g;
   },

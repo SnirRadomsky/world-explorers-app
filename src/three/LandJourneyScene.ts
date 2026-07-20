@@ -9,6 +9,12 @@ import * as THREE from "three";
 import type { VehicleSpec, LandSightSpec } from "../data/landJourney";
 import { sightsFor } from "../data/landJourney";
 import { makeTextSprite, makeGlowTexture, mulberry32 } from "./proceduralTextures";
+import {
+  setNatureTheme,
+  paintedGroundDisc,
+  hasNatureSprite,
+  natureBillboard,
+} from "./natureAssets";
 
 export interface LandPick {
   id: string;
@@ -232,57 +238,8 @@ export class LandJourneyScene {
   // ─── World ──────────────────────────────────────────────────────────────────
 
   private buildTerrain() {
-    const W = WORLDS[this.kind];
-    // painted ground disc: fields, meadow speckles, a blue river for the plane
-    const canvas = document.createElement("canvas");
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext("2d");
-    let groundMat: THREE.MeshStandardMaterial;
-    if (ctx) {
-      ctx.fillStyle = W.ground;
-      ctx.fillRect(0, 0, 512, 512);
-      const rng = mulberry32(this.kind.length * 13 + 7);
-      // patchwork fields
-      for (let i = 0; i < 26; i++) {
-        ctx.fillStyle = ["#86b86a", "#9ac97b", "#6f9e58", "#c9b36a", "#7fae5e"][Math.floor(rng() * 5)];
-        ctx.globalAlpha = 0.5 + rng() * 0.4;
-        const x = rng() * 512;
-        const y = rng() * 512;
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(rng() * Math.PI);
-        ctx.fillRect(-30 - rng() * 40, -20 - rng() * 26, 60 + rng() * 80, 40 + rng() * 52);
-        ctx.restore();
-      }
-      ctx.globalAlpha = 1;
-      // meandering river
-      ctx.strokeStyle = "#4aa3d8";
-      ctx.lineWidth = 10;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(30, 420);
-      ctx.bezierCurveTo(160, 380, 120, 240, 260, 210);
-      ctx.bezierCurveTo(390, 185, 380, 90, 480, 60);
-      ctx.stroke();
-      // speckles
-      for (let i = 0; i < 500; i++) {
-        ctx.fillStyle = i % 2 ? "#5c8a3d" : "#a7d18a";
-        ctx.globalAlpha = 0.35;
-        ctx.beginPath();
-        ctx.arc(rng() * 512, rng() * 512, 1 + rng() * 2.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      groundMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 1 });
-    } else {
-      groundMat = new THREE.MeshStandardMaterial({ color: W.ground, roughness: 1 });
-    }
-    const ground = new THREE.Mesh(new THREE.CircleGeometry(140, 56), groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.05;
+    setNatureTheme("lush");
+    const ground = paintedGroundDisc(140, "lush", { segments: 56, y: -0.05 });
     this.world.add(ground);
 
     // far mountain ring (parallax backdrop)
@@ -352,18 +309,28 @@ export class LandJourneyScene {
   private buildScatter() {
     const rng = mulberry32(this.kind.charCodeAt(0) * 7 + 3);
     const treeCount = this.kind === "plane" ? 26 : 44;
+    setNatureTheme(this.kind === "train" ? "snow" : "lush");
     for (let i = 0; i < treeCount; i++) {
       const pine = this.kind === "train" ? rng() > 0.35 : rng() > 0.75;
-      const t = tree(0.9 + rng() * 0.7, pine ? "#2f6e46" : ["#3f9142", "#57a35a", "#2f8a4f"][Math.floor(rng() * 3)], pine ? "pine" : "round");
-      // keep clear of the track band
       let r = 4 + rng() * 110;
       while (Math.abs(r - TRACK_R) < 3.4) r = 4 + rng() * 110;
       const a = rng() * Math.PI * 2;
-      t.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
       const s = 0.8 + rng() * (r > 60 ? 2.6 : 1.2);
-      t.scale.setScalar(s);
+      let t: THREE.Object3D | null = null;
+      if (hasNatureSprite("tree")) {
+        t = natureBillboard("tree", 2.2 * s, { sway: 0.02, widthScale: pine ? 0.55 : 0.75 });
+      }
+      if (!t) {
+        t = tree(
+          0.9 + rng() * 0.7,
+          pine ? "#2f6e46" : ["#3f9142", "#57a35a", "#2f8a4f"][Math.floor(rng() * 3)],
+          pine ? "pine" : "round"
+        );
+        t.scale.setScalar(s);
+      }
+      t.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
       this.world.add(t);
-      if (r < 70) this.trees.push(t);
+      if (r < 70 && t instanceof THREE.Group) this.trees.push(t);
     }
     // flower dots near the track (car), snow patches (train)
     if (this.kind !== "plane") {
@@ -371,6 +338,14 @@ export class LandJourneyScene {
         const a = rng() * Math.PI * 2;
         const r = TRACK_R + (rng() > 0.5 ? 2.6 : -2.6) - 1 + rng() * 2;
         if (this.kind === "car") {
+          if (hasNatureSprite("flowers") && i % 2 === 0) {
+            const f = natureBillboard("flowers", 0.55 + rng() * 0.3, { widthScale: 1.1 });
+            if (f) {
+              f.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+              this.world.add(f);
+              continue;
+            }
+          }
           const f = sphere(0.09, mat(["#f472b6", "#facc15", "#f87171", "#c084fc"][Math.floor(rng() * 4)], { emissive: "#fff", emissiveI: 0.06 }), 6);
           f.position.set(Math.cos(a) * r, 0.1, Math.sin(a) * r);
           this.world.add(f);

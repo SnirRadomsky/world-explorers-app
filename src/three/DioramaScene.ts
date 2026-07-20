@@ -13,6 +13,13 @@ import {
 import type { DioramaRecipe } from "../data/dioramas";
 import type { BiomeId, SkyId, NatureId } from "./dioramaKit";
 import { makeCanvas, makeTextSprite, mulberry32 } from "./proceduralTextures";
+import {
+  setNatureTheme,
+  themeForBiome,
+  paintedGroundCylinder,
+  hasNatureSprite,
+  natureBillboard,
+} from "./natureAssets";
 
 export type DioramaPickKind = "landmark" | "animal" | "nature";
 
@@ -112,13 +119,11 @@ export class DioramaScene {
   private buildStage(opts: DioramaOptions) {
     const biome = opts.recipe?.biome ?? opts.fallback?.biome ?? "grass";
     const colors = BIOME_COLORS[biome];
+    const theme = setNatureTheme(themeForBiome(biome));
     const rng = mulberry32(17);
 
-    // floating island ground: a fat disc with an earthy underside
-    const ground = new THREE.Mesh(
-      new THREE.CylinderGeometry(5.2, 4.6, 0.7, 24),
-      new THREE.MeshStandardMaterial({ color: colors.ground, flatShading: true, roughness: 1 })
-    );
+    // floating island ground: painted top + earthy underside
+    const ground = paintedGroundCylinder(5.2, 4.6, 0.7, theme);
     ground.position.y = -0.35;
     this.stage.add(ground);
     const under = new THREE.Mesh(
@@ -129,10 +134,23 @@ export class DioramaScene {
     under.position.y = -2.0;
     this.stage.add(under);
 
-    // scattered ground details (tufts / stones / snow lumps)
+    // scattered ground details: painted tufts / rocks when available
     for (let i = 0; i < 16; i++) {
       const a = rng() * Math.PI * 2;
       const r = 1.5 + rng() * 3.2;
+      const detailKind = biome === "snow" || biome === "rock" || biome === "sand"
+        ? "rock"
+        : i % 3 === 0
+          ? "flowers"
+          : "grass";
+      if (hasNatureSprite(detailKind) && i % 2 === 0) {
+        const bb = natureBillboard(detailKind, 0.35 + rng() * 0.25, { widthScale: 0.9 });
+        if (bb) {
+          bb.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+          this.stage.add(bb);
+          continue;
+        }
+      }
       const d = new THREE.Mesh(
         new THREE.SphereGeometry(0.07 + rng() * 0.09, 5, 5),
         new THREE.MeshStandardMaterial({ color: colors.detail, flatShading: true, roughness: 1 })

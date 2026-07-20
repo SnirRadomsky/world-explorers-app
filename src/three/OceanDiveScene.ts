@@ -7,6 +7,12 @@ import type { OceanSpec, OceanZoneId } from "../data/oceans";
 import { creaturesFor, type MarineCreature } from "../data/marineLife";
 import { buildCreature, collectRig } from "./lowPolyLife";
 import { makeTextSprite, mulberry32 } from "./proceduralTextures";
+import {
+  setNatureTheme,
+  paintedGroundDisc,
+  hasNatureSprite,
+  natureBillboard,
+} from "./natureAssets";
 
 export interface OceanPick {
   id: string;
@@ -209,18 +215,22 @@ export class OceanDiveScene {
 
     // floor
     if (opts.zone !== "open") {
-      const floorColor = opts.zone === "reef" ? 0xd9c58f : 0x14202e;
-      const floor = new THREE.Mesh(
-        new THREE.CircleGeometry(45, 36),
-        new THREE.MeshStandardMaterial({ color: floorColor, roughness: 1 })
-      );
-      floor.rotation.x = -Math.PI / 2;
-      floor.position.y = -7;
-      this.scene.add(floor);
-
       if (opts.zone === "reef") {
-        // swaying seaweed strands (pivot at the base)
+        setNatureTheme("reef");
+        const floor = paintedGroundDisc(45, "reef", { segments: 36, y: -7 });
+        this.scene.add(floor);
+
+        // swaying kelp / seaweed
         for (let i = 0; i < 10; i++) {
+          const painted = hasNatureSprite("kelp")
+            ? natureBillboard("kelp", 2.2 + rng() * 1.4, { sway: 0.04, widthScale: 0.55 })
+            : null;
+          if (painted) {
+            painted.position.set((rng() - 0.5) * 32, -7, (rng() - 0.5) * 32);
+            this.scene.add(painted);
+            this.seaweeds.push(painted);
+            continue;
+          }
           const strand = new THREE.Group();
           const h = 1.6 + rng() * 1.8;
           const green = new THREE.MeshStandardMaterial({
@@ -241,9 +251,17 @@ export class OceanDiveScene {
         // coral garden
         const corals = ["#ff6f61", "#f59e0b", "#e879f9", "#34d399", "#f43f5e", "#38bdf8"];
         for (let i = 0; i < 22; i++) {
-          const cluster = new THREE.Group();
           const cx = (rng() - 0.5) * 34;
           const cz = (rng() - 0.5) * 34;
+          if (hasNatureSprite("coral")) {
+            const c = natureBillboard("coral", 0.9 + rng() * 1.1, { widthScale: 0.95 });
+            if (c) {
+              c.position.set(cx, -7, cz);
+              this.scene.add(c);
+              continue;
+            }
+          }
+          const cluster = new THREE.Group();
           const n = 2 + Math.floor(rng() * 4);
           for (let j = 0; j < n; j++) {
             const color = corals[Math.floor(rng() * corals.length)];
@@ -277,6 +295,14 @@ export class OceanDiveScene {
           this.scene.add(cluster);
         }
       } else {
+        const floor = new THREE.Mesh(
+          new THREE.CircleGeometry(45, 36),
+          new THREE.MeshStandardMaterial({ color: 0x14202e, roughness: 1 })
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -7;
+        this.scene.add(floor);
+
         // deep: hydrothermal vents ("black smokers") with a warm glow
         for (let i = 0; i < 5; i++) {
           const vent = new THREE.Mesh(

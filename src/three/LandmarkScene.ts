@@ -8,6 +8,13 @@ import * as THREE from "three";
 import type { LandmarkSpec, LandmarkSky, LandmarkGround } from "../data/landmarks";
 import { buildLandmarkSite } from "./landmarkKit";
 import { makeStarField, makeTextSprite, makeGlowTexture, mulberry32 } from "./proceduralTextures";
+import {
+  setNatureTheme,
+  themeForLandmarkGround,
+  paintedGroundDisc,
+  hasNatureSprite,
+  natureBillboard,
+} from "./natureAssets";
 
 export interface LandmarkPick {
   kind: "treasure" | "site";
@@ -45,16 +52,6 @@ const SKY: Record<LandmarkSky, {
   night:  { top: "#050a1c", mid: "#0d1738", bottom: "#1a2a55", ambient: 0.45, ambientColor: 0x8fa8e0, sun: 0.55, sunColor: 0x9db8ff, sunPos: [3, 9, 5], stars: true, moon: true },
   aurora: { top: "#03060f", mid: "#0a1430", bottom: "#16295c", ambient: 0.66, ambientColor: 0xb8ffe0, sun: 0.6,  sunColor: 0xa8f0d0, sunPos: [0, 10, 6], stars: true, moon: true },
   polar:  { top: "#8fc3e8", mid: "#cfe8f7", bottom: "#f2f9fd", ambient: 0.95, ambientColor: 0xf0f8ff, sun: 1.1,  sunColor: 0xffe8c8, sunPos: [-8, 3, 7], sunDisc: "#ffe8b8" },
-};
-
-const GROUND: Record<LandmarkGround, { base: string; speckle: string; speckle2: string }> = {
-  sand:    { base: "#e3cd94", speckle: "#d4ba7c", speckle2: "#f0dfae" },
-  grass:   { base: "#79a860", speckle: "#5c8a3d", speckle2: "#8fbf6f" },
-  snow:    { base: "#eef4f8", speckle: "#d5e4ee", speckle2: "#ffffff" },
-  stone:   { base: "#c9c2b2", speckle: "#b0a894", speckle2: "#d9d3c5" },
-  savanna: { base: "#c9b36a", speckle: "#a8934f", speckle2: "#dcc98a" },
-  plaza:   { base: "#d5cbb5", speckle: "#c2b79e", speckle2: "#e3dbc9" },
-  ice:     { base: "#dceefa", speckle: "#c2ddef", speckle2: "#f0f8fd" },
 };
 
 export class LandmarkScene {
@@ -185,42 +182,31 @@ export class LandmarkScene {
   }
 
   private buildGround(kind: LandmarkGround) {
-    const spec = GROUND[kind];
-    const geo = new THREE.CircleGeometry(11.5, 40);
-    let mat: THREE.MeshStandardMaterial;
-    const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 256;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.fillStyle = spec.base;
-      ctx.fillRect(0, 0, 256, 256);
-      const rng = mulberry32(kind.length * 17 + 3);
-      for (let i = 0; i < 420; i++) {
-        ctx.fillStyle = i % 2 ? spec.speckle : spec.speckle2;
-        ctx.globalAlpha = 0.25 + rng() * 0.4;
-        const r = 1 + rng() * 3;
-        ctx.beginPath();
-        ctx.arc(rng() * 256, rng() * 256, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-      // soft edge vignette
-      const vg = ctx.createRadialGradient(128, 128, 90, 128, 128, 132);
-      vg.addColorStop(0, "rgba(0,0,0,0)");
-      vg.addColorStop(1, "rgba(0,0,0,0.18)");
-      ctx.fillStyle = vg;
-      ctx.fillRect(0, 0, 256, 256);
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 });
-    } else {
-      mat = new THREE.MeshStandardMaterial({ color: spec.base, roughness: 0.95 });
-    }
-    const ground = new THREE.Mesh(geo, mat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0;
+    const theme = setNatureTheme(themeForLandmarkGround(kind));
+    const ground = paintedGroundDisc(11.5, theme, { segments: 40 });
     this.stage.add(ground);
+
+    // soft rim props around the stage edge
+    const rng = mulberry32(kind.length * 17 + 3);
+    const propKind = kind === "sand" || kind === "savanna"
+      ? ("palm" as const)
+      : kind === "snow" || kind === "ice"
+        ? ("rock" as const)
+        : kind === "plaza" || kind === "stone"
+          ? ("bush" as const)
+          : ("tree" as const);
+    if (hasNatureSprite(propKind)) {
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2 + rng() * 0.2;
+        const r = 8.2 + rng() * 2.2;
+        const bb = natureBillboard(propKind, 1.4 + rng() * 1.2, { sway: 0.02 });
+        if (bb) {
+          bb.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+          this.stage.add(bb);
+        }
+      }
+    }
+
     // earthy rim so the stage reads like a little island
     const rim = new THREE.Mesh(
       new THREE.CylinderGeometry(11.5, 10.6, 1.1, 40, 1, true),
