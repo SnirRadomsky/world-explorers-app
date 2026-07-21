@@ -5,6 +5,11 @@
 
 import * as THREE from "three";
 import { buildAnimal } from "./dioramaKit";
+import {
+  hasLandmarkSprite,
+  paintedLandmark,
+  landmarkSpriteKeyForWonder,
+} from "./entityAssets";
 
 function m(color: string | number, opts?: {
   rough?: number; metal?: number; emissive?: string; emissiveIntensity?: number;
@@ -1476,7 +1481,62 @@ const sites: Record<string, SiteBuilder> = {
 export type LandmarkSiteId = keyof typeof sites;
 export const SITE_IDS = Object.keys(sites);
 
+const WONDER_PAINT_SIZE: Record<string, number> = {
+  kotel: 5.5,
+  liberty: 6.5,
+  redeemer: 6.5,
+  moai: 5.0,
+  eiffel: 7.5,
+  pyramids: 5.5,
+  colosseum: 5.5,
+  bigben: 7.0,
+  tajmahal: 5.5,
+  opera: 5.0,
+  greatwall: 5.0,
+  burj: 8.0,
+  petra: 5.5,
+  neuschwanstein: 6.0,
+  niagara: 5.5,
+  fuji: 6.0,
+  machu: 5.5,
+};
+
+/** Sites with important named animation parts stay procedural. */
+const KEEP_PROCEDURAL = new Set([
+  "aurora",
+  "penguins",
+  "savanna",
+  "niagara", // mist animation
+]);
+
 export function buildLandmarkSite(id: string): THREE.Group {
+  if (!KEEP_PROCEDURAL.has(id)) {
+    const key = landmarkSpriteKeyForWonder(id);
+    if (key && hasLandmarkSprite(key)) {
+      const size = WONDER_PAINT_SIZE[id] ?? 5.5;
+      const painted = paintedLandmark(key, size, {
+        widthScale: id === "eiffel" || id === "burj" || id === "bigben" ? 0.45 : 0.7,
+      });
+      if (painted) {
+        const g = new THREE.Group();
+        // Low pedestal so the painted hero sits on the stage
+        const stone = m("#c9b89a");
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.9, 0.35, 16), stone);
+        base.position.y = 0.17;
+        g.add(base);
+        const rim = new THREE.Mesh(
+          new THREE.TorusGeometry(1.75, 0.08, 8, 24),
+          m("#a89878")
+        );
+        rim.rotation.x = Math.PI / 2;
+        rim.position.y = 0.36;
+        g.add(rim);
+        painted.position.y = 0.35;
+        g.add(painted);
+        return g;
+      }
+    }
+  }
   const builder = sites[id];
   return builder ? builder() : new THREE.Group();
 }

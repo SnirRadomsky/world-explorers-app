@@ -15,6 +15,7 @@
     "test:e2e": "playwright test",
     "test:all": "npm run test && npm run build && npm run test:e2e",
     "process:nature": "node scripts/process-nature-assets.mjs",
+    "process:entities": "node scripts/process-entity-assets.mjs",
     "postinstall": "patch-package"
   },
   "dependencies": {

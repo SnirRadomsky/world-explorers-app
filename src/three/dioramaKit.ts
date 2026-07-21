@@ -4,6 +4,7 @@
 
 import * as THREE from "three";
 import { hasNatureSprite, natureBillboard } from "./natureAssets";
+import { hasAnimalSprite, hasLandmarkSprite, paintedAnimal, paintedLandmark } from "./entityAssets";
 
 export type LandmarkId =
   | "eiffel" | "pyramid" | "colosseum" | "bigben" | "liberty" | "operaHouse"
@@ -926,11 +927,58 @@ const nature: Record<NatureId, () => THREE.Group> = {
 
 // ─── Public builders ──────────────────────────────────────────────────────────
 
+const LANDMARK_PAINT_SIZE: Partial<Record<LandmarkId, number>> = {
+  eiffel: 4.2,
+  pyramid: 3.2,
+  colosseum: 3.4,
+  bigben: 4.0,
+  liberty: 3.8,
+  operaHouse: 3.0,
+  greatWall: 3.2,
+  tajMahal: 3.4,
+  kremlin: 3.4,
+  torii: 3.0,
+  windmill: 3.4,
+  moai: 3.2,
+  christRedeemer: 3.8,
+  machuPicchu: 3.2,
+  kilimanjaro: 3.2,
+  azrieli: 4.0,
+  pisa: 3.8,
+};
+
+const ANIMAL_PAINT_SIZE: Partial<Record<AnimalId, number>> = {
+  camel: 2.4,
+  kangaroo: 2.2,
+  panda: 2.0,
+  lion: 2.2,
+  elephant: 2.6,
+  bear: 2.2,
+  llama: 2.3,
+  toucan: 1.6,
+  eagle: 1.8,
+  rooster: 1.5,
+  ibex: 2.0,
+  wolf: 2.0,
+  sheep: 1.8,
+  cow: 2.2,
+  crane: 2.2,
+};
+
 export function buildLandmark(id: LandmarkId): THREE.Group {
+  // Keep windmill procedural so the named "spinner" blades still animate.
+  if (id !== "windmill" && hasLandmarkSprite(id)) {
+    const painted = paintedLandmark(id, LANDMARK_PAINT_SIZE[id] ?? 3.4);
+    if (painted) return painted;
+  }
   return landmarks[id]();
 }
 
 export function buildAnimal(id: AnimalId): THREE.Group {
+  if (hasAnimalSprite(id)) {
+    const painted = paintedAnimal(id, ANIMAL_PAINT_SIZE[id] ?? 2.2);
+    if (painted) return painted;
+  }
   return animals[id]();
 }
 

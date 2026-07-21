@@ -5,6 +5,10 @@ Adapted from **אלוף התנ״ך / tanach-champion** for **World Explorers**.
 
 Earth globe and galaxy / solar system stay procedural - do not run this pipeline on them.
 
+Entity heroes (animals, landmarks, land sights) use a parallel pack under
+`public/assets/entities/sprites` via `src/three/entityAssets.ts` and
+`npm run process:entities`. Builders prefer painted sprites with procedural fallback.
+
 ---
 
 ## Goal

@@ -15,6 +15,7 @@ import {
   hasNatureSprite,
   natureBillboard,
 } from "./natureAssets";
+import { hasSightSprite, paintedSight } from "./entityAssets";
 
 export interface LandPick {
   id: string;
@@ -540,6 +541,27 @@ export class LandJourneyScene {
   // ─── Sights ─────────────────────────────────────────────────────────────────
 
   private buildSightMesh(spec: LandSightSpec): THREE.Group {
+    // Prefer painted entity sprites for supported roadside heroes.
+    // Keep procedural for kinds that need named animation parts (waterfall mist,
+    // windmill spinner, balloons bob, etc.) unless we accept a static card.
+    const PAINTED_OK = new Set([
+      "deer", "castle", "farm", "ruins", "sheep", "snowman", "tunnel",
+      "trainStation", "city", "island", "cloudCastle", "volcano",
+      "balloons", "waterfall", "windmill",
+    ]);
+    if (PAINTED_OK.has(spec.kind) && hasSightSprite(spec.kind)) {
+      const size =
+        spec.kind === "castle" || spec.kind === "cloudCastle" || spec.kind === "city"
+          ? 5.5
+          : spec.kind === "volcano" || spec.kind === "waterfall"
+            ? 5.0
+            : spec.kind === "deer" || spec.kind === "sheep" || spec.kind === "snowman"
+              ? 2.8
+              : 4.2;
+      const painted = paintedSight(spec.kind, size);
+      if (painted) return painted;
+    }
+
     const g = new THREE.Group();
     const rng = mulberry32(spec.id.length * 11 + spec.id.charCodeAt(3));
     switch (spec.kind) {
